@@ -1,0 +1,32 @@
+# 📋 Changelog — e-paperHUB
+
+Registro histórico de versiones y cambios del servidor backend y del firmware de la **Seeed Studio XIAO ESP32-C6**.
+
+---
+
+## [v1.1.1-carrusel] — 2026-11-08
+### Agregado
+- **Auto-compilador OTA para XIAO ESP32-C6 (`mode=build_ota`):** Compilación automática del archivo `.bin` usando `arduino-cli` (`esp32:esp32:XIAO_ESP32C6`), incremento automático de versión en `epaper_acep_hub_esp32_c6.ino` y publicación directa en `/static/ota/firmware.bin` y `/static/ota/version.json`.
+- **Chequeo OTA continuo en `loop()`:** La XIAO ESP32-C6 ahora verifica si hay actualizaciones OTA tanto al encender (`setup()`) como en cada ciclo del carrusel (`loop()`).
+- **Gestión cifrada de secretos (`.env` + AES-256):** Carga automática de `.env` en `config.py`, plantillas públicas `.env.example` y `esp32_firmware/secrets.example.h`, e inyección cifrada de claves al servidor de Tokyo.
+- **Documentación:** Creación de `README.md` principal y `CHANGELOG.md`.
+
+### Limpieza
+- Eliminados 17 scripts temporales de prueba/parches de la raíz del proyecto (`apply_*.py`, `fix_*.py`, `list_*.py`, `migrate_*.py`, `patch_*.py`, `discover_xiaomi.py`, `test_wifi_render.py`, `trigger_rebuild.py`, `update_tuya_sync.py`, `check_visible.py`, `cleanup_domotica.py`, `download_inkypi_icons.py`, `process_inkypi_icons.py`).
+
+---
+
+## [v1.1.0-carrusel] — 2026-11-06
+### Agregado
+- Soporte nativo para **Seeed Studio XIAO ESP32-C6** (`epaper_acep_hub_esp32_c6.ino`).
+- Modo carrusel automático (60 segundos por pantalla) + salto instantáneo con botón `BOOT` (`GPIO 9`).
+
+---
+
+## [v1.0.0] — 2026-11-05
+### Agregado
+- Pipeline gráfico calibrado para panel **E-Paper 7.3" ACeP 7-Color** (`800×480`, dithering Atkinson/Sierra Lite en CIELAB).
+- Integraciones en vivo con **Open-Meteo**, **Google Calendar (`.ics`)**, **Tuya Smart / Smart Life** (22 dispositivos) y **Xiaomi Cloud** (aspiradora robot Romina).
+- Generador automático del cómic diario *"Las Gaturrakas"* con **Google Gemini API**.
+- Calendario mensual estilo Doodle con tipografía `Patrick Hand`.
+- Servidor web Mobile Hub (`/hub`, `/gastos`, `/domotica`, `/subir-foto`, `/notas`, `/ota`).

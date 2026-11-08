@@ -106,6 +106,13 @@ python app.py
 
 ## 📋 Log de Cambios (Changelog)
 
+### `2026-11-08` — `v1.1.3` (Calibración Perceptual CIE94 y Protección Inteligente de Tonos de Piel)
+- **Corrección de "Caras Coloradas / Quemadas":**
+  - Implementación de la norma internacional **CIE94** en la tabla 3D de cuantización perceptual (`generator/dither.py`). Se ponderan el croma ($S_C$) y el tono ($S_H$), eliminando la penalización artificial que excluía al pigmento Amarillo para tonos cálidos.
+  - **Skin-Tone Protection:** Detección de matices de piel humana con preservación de saturación natural ($\sim 0.90\times$) y micro-ganancia de exposición en rostros en penumbra.
+  - El pre-procesamiento de brillo y contraste S-curve se ejecuta ahora de manera estrictamente preservativa sobre la **Luminancia ($Y$)**, evitando que los canales RGB se separen y saturen artificialmente los rojos.
+  - Reducción del boost global de saturación a $+12\%$ (en lugar del $+38\%$ previo que teñía las fotos de rojo y naranja).
+
 ### `2026-11-08` — `v1.1.2-carrusel` (Pantalla E-Paper `"ACTUALIZANDO... ESP32"` y Restauración Post-OTA)
 - **Pantalla visual de actualización OTA (`static/ota/ota_screen.bin`):** Se adaptó la ilustración de *Las Gaturrakas* (`"ACTUALIZANDO... ESP32"`) a `480×800` vertical con paleta calibrada ACeP de 7 colores (`192.000 bytes`).
 - **Secuencia en ESP32-C6 y Backend:** Antes de iniciar `httpUpdate.update()`, el ESP32 solicita `touches=ota_updating` y refresca el panel con la imagen de actualización; una vez flasheado el firmware y reiniciada la placa, el servidor restaura automáticamente la misma pantalla que se estaba mostrando antes del OTA.

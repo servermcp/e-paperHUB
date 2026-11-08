@@ -4,6 +4,17 @@ Registro histórico de versiones y cambios del servidor backend y del firmware d
 
 ---
 
+## [v1.1.3] — 2026-11-08
+### Mejorado
+- **Calibración Perceptual CIE94 para E-Paper ACeP 7-Color:** Reemplazo de la métrica euclidiana cruda CIELAB 1976 por la norma estándar **CIE94** (con escala de tolerancia cromática $S_C$ y de tono $S_H$). Esto desbloquea el uso natural del pigmento Amarillo en pieles y evita que el algoritmo descarte el amarillo en favor exclusivo del Naranja y Rojo.
+- **Protección Inteligente de Tonos de Piel (Skin-Tone Protection):**
+  - Detección adaptativa de matices cálidos de piel humana (campana gaussiana centrada en $\sim 25^\circ$).
+  - Restricción de saturación en pieles para permitir un dithering suave entre Blanco y Amarillo sin provocar caras "coloradas" o manchadas de rojo/naranja.
+  - Levantamiento de sombras y medios tonos aplicado estrictamente sobre la **Luminancia ($Y$)**, evitando que las curvas S de contraste separen los canales RGB y fuercen saturaciones rojas extremas.
+  - Micro-ganancia de exposición para rostros en interiores o con iluminación tenue.
+
+---
+
 ## [v1.1.2-carrusel] — 2026-11-08
 ### Agregado
 - **Pantalla E-Paper `"ACTUALIZANDO... ESP32"` pre-OTA (`static/ota/ota_screen.bin`):** Adaptación de la ilustración de *Las Gaturrakas* en `480×800` vertical con dithering ACeP 7-Color (fondo blanco limpio y trazos negros puros).

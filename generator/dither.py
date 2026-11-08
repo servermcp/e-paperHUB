@@ -95,38 +95,88 @@ def build_s_curve_lut(contrast_strength: float = 0.15, brightness_boost: float =
 
 def apply_acep_tone_mapping(
     image: Image.Image,
-    saturation_boost: float = config.TONE_MAP_DEFAULTS["saturation_boost"],
-    contrast_s_curve: float = config.TONE_MAP_DEFAULTS["contrast_s_curve"],
-    brightness_boost: float = config.TONE_MAP_DEFAULTS["brightness_boost"],
+    saturation_boost: float = config.TONE_MAP_DEFAULTS.get("saturation_boost", 1.12),
+    contrast_s_curve: float = config.TONE_MAP_DEFAULTS.get("contrast_s_curve", 0.10),
+    brightness_boost: float = config.TONE_MAP_DEFAULTS.get("brightness_boost", 1.08),
+    gamma_lift: float = config.TONE_MAP_DEFAULTS.get("gamma_lift", 0.82),
+    skin_protect: bool = config.TONE_MAP_DEFAULTS.get("skin_protect", True),
     target_size: Tuple[int, int] = (config.DISPLAY_WIDTH, config.DISPLAY_HEIGHT),
 ) -> Image.Image:
     """
-    Ejecuta el pre-procesamiento obligatorio para compensar la baja reflectancia
-    de la pantalla ACeP de 7 colores:
-      - Redimensionamiento inteligente (center-crop exacto a 800x480 si no coincide).
-      - Curva S (+15% contraste) + elevación de medios tonos (+5% brillo).
-      - Boost de saturación (+35% a +40%, por defecto 1.38 = +38%).
+    Ejecuta el pre-procesamiento optimizado para la pantalla E-Paper ACeP de 7 colores:
+      1. Ajuste dimensional inteligente (center-crop con LANCZOS al target_size).
+      2. Levantamiento de sombras y medios tonos en Luminancia (Y Rec.601) preservando fidelidad
+         de color (evita que los rostros en sombra caigan en pigmentos rojos/naranjas saturados).
+      3. Contraste sigmoide suave en luminancia para conservar profundidad sin distorsionar croma.
+      4. Saturación perceptual adaptativa con protección de tonos de piel humanos (evita
+         el efecto de 'cara colorada/quemada' al ditherizar con la paleta limitada ACeP).
     """
     img = ImageOps.exif_transpose(image).convert("RGB")
 
     if img.size != target_size:
         img = ImageOps.fit(img, target_size, method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
 
-    # 1. Aplicar LUT de Brillo en medios tonos (+5%) + Contraste en Curva S (+15%)
-    lut = build_s_curve_lut(contrast_strength=contrast_s_curve, brightness_boost=brightness_boost)
-    rgb_lut = np.tile(lut, 3).tolist()
-    img = img.point(rgb_lut)
+    arr = np.asarray(img, dtype=np.float32) / 255.0
 
-    # 2. Aplicar Boost de Saturación (+38%) para compensar opacidad del pigmento e-Ink
-    if saturation_boost != 1.0:
-        enhancer = ImageEnhance.Color(img)
-        img = enhancer.enhance(saturation_boost)
+    # 1. Luminancia preservada (Y Rec.601)
+    y = 0.299 * arr[..., 0] + 0.587 * arr[..., 1] + 0.114 * arr[..., 2]
 
-    return img
+    # Corrección de brillo/gamma en luminancia (levanta sombras y rostros sin descalibrar el matiz)
+    effective_gamma = gamma_lift
+    if brightness_boost != 1.0 and brightness_boost > 0:
+        effective_gamma *= (1.0 / float(brightness_boost))
+
+    y_corr = np.power(np.maximum(y, 1e-4), effective_gamma)
+
+    # 2. Contraste sigmoide S-curve aplicado a la luminancia
+    if contrast_s_curve > 0.0:
+        k = 1.0 + (contrast_s_curve * 8.0)
+        centered = y_corr - 0.5
+        sig = 1.0 / (1.0 + np.exp(-k * centered * 4.0))
+        sig_min = 1.0 / (1.0 + np.exp(-k * (-0.5) * 4.0))
+        sig_max = 1.0 / (1.0 + np.exp(-k * (0.5) * 4.0))
+        s_curve = (sig - sig_min) / (sig_max - sig_min)
+        blend = min(max(contrast_s_curve * 2.0, 0.0), 1.0)
+        y_corr = (1.0 - blend) * y_corr + blend * s_curve
+
+    scale = np.where(y > 1e-4, y_corr / np.maximum(y, 1e-4), 1.0)[..., None]
+    arr_lifted = np.clip(arr * scale, 0.0, 1.0)
+
+    # 3. Saturación adaptativa y protección de tonos de piel
+    if skin_protect:
+        rgb_uint8 = (arr_lifted * 255.0).astype(np.uint8)
+        hsv = np.asarray(Image.fromarray(rgb_uint8, mode="RGB").convert("HSV"), dtype=np.float32)
+        h = hsv[..., 0]  # 0..255 (en escala de 360°, 0=rojo, ~20=naranja, ~42=amarillo)
+        s = hsv[..., 1] / 255.0
+        v = hsv[..., 2] / 255.0
+
+        # Campana gaussiana centrada en tonos cálidos de piel humana (~25° de matiz)
+        is_warm = np.exp(-((h - 18.0) ** 2) / (2.0 * (12.0 ** 2)))
+        is_skin = is_warm * np.clip((s - 0.12) / 0.18, 0.0, 1.0) * np.clip((v - 0.20) / 0.20, 0.0, 1.0)
+
+        # Para pieles: saturación contenida (0.90) para permitir que el blanco y amarillo
+        # dithericen suavemente sin disparar puntos rojos/naranjas aislados.
+        # Para el resto (paisajes, vegetación, cielo, ropa): boost de saturación configurado.
+        sat_mult = (1.0 - is_skin) * saturation_boost + is_skin * 0.90
+        hsv[..., 1] = np.clip(s * sat_mult * 255.0, 0, 255)
+
+        # Micro-ganancia en medios tonos de piel para asegurar que las caras no queden en sombras densas
+        v_boost = np.clip(is_skin * (0.62 - v) * 0.25, 0.0, 0.12)
+        hsv[..., 2] = np.clip((v + v_boost) * 255.0, 0, 255)
+
+        img_out = Image.fromarray(hsv.astype(np.uint8), mode="HSV").convert("RGB")
+    else:
+        rgb_uint8 = (arr_lifted * 255.0).astype(np.uint8)
+        img_out = Image.fromarray(rgb_uint8, mode="RGB")
+        if saturation_boost != 1.0:
+            enhancer = ImageEnhance.Color(img_out)
+            img_out = enhancer.enhance(saturation_boost)
+
+    return img_out
 
 
 # ==============================================================================
-# 3. CUANTIZACIÓN PERCEPTUAL EN CIELAB + DITHERING ATKINSON / SIERRA LITE
+# 3. CUANTIZACIÓN PERCEPTUAL EN CIE94 + DITHERING ATKINSON / SIERRA LITE
 # ==============================================================================
 
 _PALETTE_HW_INDICES = np.array([item[0] for item in config.ACEP_PALETTE_ORDERED], dtype=np.uint8)
@@ -140,23 +190,41 @@ _PALETTE_LAB_CAL = srgb_to_lab_array(_PALETTE_SRGB_CAL.astype(np.uint8))
 def _build_rgb555_to_acep_lut() -> Tuple[np.ndarray, np.ndarray]:
     """
     Construye una LUT 3D de 32x32x32 (32,768 entradas, RGB555) que mapea cualquier
-    triplete RGB al índice de color más cercano de la paleta ACeP usando distancia
-    perceptual Delta-E en espacio CIELAB.
+    triplete RGB al índice de color más cercano de la paleta ACeP usando la métrica
+    perceptual CIE94 en espacio CIELAB (con ponderación de croma y tono).
     """
     grid = np.linspace(0, 255, 32, dtype=np.float32)
     r_grid, g_grid, b_grid = np.meshgrid(grid, grid, grid, indexing="ij")
     rgb_grid = np.stack([r_grid, g_grid, b_grid], axis=-1)
 
     lab_grid = srgb_to_lab_array(rgb_grid)
-    diff = lab_grid[..., np.newaxis, :] - _PALETTE_LAB_CAL[np.newaxis, np.newaxis, np.newaxis, :, :]
 
-    dL2 = (diff[..., 0] * 1.05) ** 2
-    da2 = diff[..., 1] ** 2
-    db2 = diff[..., 2] ** 2
-    dist_sq = dL2 + da2 + db2
+    L1 = lab_grid[..., 0, None]
+    L2 = _PALETTE_LAB_CAL[None, None, None, :, 0]
+    dL = L1 - L2
 
-    best_palette_pos = np.argmin(dist_sq, axis=-1).astype(np.uint8)
+    a1 = lab_grid[..., 1, None]
+    b1 = lab_grid[..., 2, None]
+    a2 = _PALETTE_LAB_CAL[None, None, None, :, 1]
+    b2 = _PALETTE_LAB_CAL[None, None, None, :, 2]
+
+    C1 = np.sqrt(a1**2 + b1**2)
+    C2 = np.sqrt(a2**2 + b2**2)
+    dC = C1 - C2
+    da = a1 - a2
+    db = b1 - b2
+    dH2 = np.maximum(0.0, da**2 + db**2 - dC**2)
+
+    # Coeficientes estándar CIE94 para artes gráficas
+    SC = 1.0 + 0.045 * C1
+    SH = 1.0 + 0.015 * C1
+
+    # Factor de ponderación en luminancia (1.08) para preservar contraste estructural
+    dE2 = (dL * 1.08)**2 + (dC / SC)**2 + (dH2 / (SH**2))
+
+    best_palette_pos = np.argmin(dE2, axis=-1).astype(np.uint8)
     return best_palette_pos, _PALETTE_SRGB_CAL
+
 
 
 _LUT_BEST_POS: np.ndarray | None = None
@@ -319,11 +387,15 @@ def dither_image_acep(
 def quantize_color_to_acep_hw(rgb: Tuple[int, int, int]) -> int:
     """
     Convierte un color RGB puntual al índice de hardware ACeP (0x0..0x6) más cercano
-    en espacio perceptual CIELAB (útil para colorear elementos de UI o iconos SVG).
+    en espacio perceptual CIE94 (útil para colorear elementos de UI o iconos SVG).
     """
-    pixel_arr = np.array([[rgb]], dtype=np.uint8)
-    pixel_lab = srgb_to_lab_array(pixel_arr)[0, 0]
-    diffs = _PALETTE_LAB_CAL - pixel_lab
-    dist_sq = (diffs[:, 0] * 1.05) ** 2 + diffs[:, 1] ** 2 + diffs[:, 2] ** 2
-    best_pos = int(np.argmin(dist_sq))
+    lut_pos, _ = _get_perceptual_lut()
+    r = int(rgb[0])
+    g = int(rgb[1])
+    b = int(rgb[2])
+    ri = 0 if r <= 0 else (31 if r >= 255 else int(r * 0.1215686))
+    gi = 0 if g <= 0 else (31 if g >= 255 else int(g * 0.1215686))
+    bi = 0 if b <= 0 else (31 if b >= 255 else int(b * 0.1215686))
+    best_pos = lut_pos[ri, gi, bi]
     return int(_PALETTE_HW_INDICES[best_pos])
+

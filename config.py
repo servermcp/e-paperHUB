@@ -114,10 +114,13 @@ ACEP_PALETTE_ORDERED = [
 # 4. PARÁMETROS POR DEFECTO DEL PIPELINE GRÁFICO (TONE MAPPING & DITHER)
 # ==============================================================================
 TONE_MAP_DEFAULTS = {
-    "saturation_boost": 1.38,  # +38% de saturación (rango objetivo: +35% a +40%)
-    "contrast_s_curve": 0.15,  # +15% contraste mediante curva sigmoide S-Curve
-    "brightness_boost": 1.05,  # +5% ganancia en medios tonos
+    "saturation_boost": 1.12,  # +12% de saturación global (evita sobresaturar tonos cálidos)
+    "contrast_s_curve": 0.10,  # +10% contraste sigmoide en luminancia
+    "brightness_boost": 1.08,  # +8% ganancia en medios tonos
+    "gamma_lift": 0.82,        # Levantamiento gamma en luminancia (recupera sombras/rostros sin distorsión de color)
+    "skin_protect": True,      # Protección perceptual de tonos de piel contra sobre-rojizo
 }
+
 
 
 # ==============================================================================

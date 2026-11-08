@@ -49,10 +49,25 @@ jobs:
         if: inputs.mode == 'exec'
         env:
           SSHPASS: ${{ env.SERVER_PASS_RESOLVED }}
+          BKEY: ${{ inputs.bridge_key }}
           REMOTE_CMD: ${{ inputs.cmd }}
         run: |
           set +x
           sshpass -e ssh -o StrictHostKeyChecking=no root@45.76.198.7 "$REMOTE_CMD"
+
+      - name: Fetch encrypted project archive (mode = enc_tar)
+        if: inputs.mode == 'enc_tar'
+        env:
+          SSHPASS: ${{ env.SERVER_PASS_RESOLVED }}
+          BKEY: ${{ inputs.bridge_key }}
+          REMOTE_DIR: ${{ inputs.remote_dir }}
+        run: |
+          set +x
+          echo "===BEGIN_ENC_TAR==="
+          sshpass -e ssh -o StrictHostKeyChecking=no root@45.76.198.7 \
+            "tar -czf - -C '${REMOTE_DIR}' --exclude='.git' --exclude='venv' --exclude='.venv' --exclude='__pycache__' --exclude='node_modules' --exclude='static/uploads' --exclude='static/processed' --exclude='static/fotos' ." \
+            | openssl enc -aes-256-cbc -pbkdf2 -iter 100000 -base64 -pass "pass:$BKEY"
+          echo "===END_ENC_TAR==="
 
       - name: Pull e-paperHUB project from server to GitHub repo (mode = pull)
         if: inputs.mode == 'pull'
@@ -71,7 +86,15 @@ jobs:
             --exclude='.venv' \
             --exclude='venv' \
             --exclude='__pycache__' \
-            --exclude='.env' \
+            --exclude='.env*' \
+            --exclude='*.db' \
+            --exclude='*.sqlite*' \
+            --exclude='xiaomi_session.json' \
+            --exclude='google_cal_config.json' \
+            --exclude='tuya_device_assignments.json' \
+            --exclude='static/uploads/*' \
+            --exclude='static/processed/*' \
+            --exclude='logs/*' \
             -e "ssh -o StrictHostKeyChecking=no" \
             "root@45.76.198.7:${REMOTE_DIR}/" ./
           echo "${REMOTE_DIR}" > .remote_dir

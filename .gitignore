@@ -1,0 +1,32 @@
+# Entornos virtuales y caché de Python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+node_modules/
+
+# Variables de entorno y secretos locales (EXCEPTO .env.example y secrets.example.h)
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+credentials_*.json
+esp32_firmware/secrets.h
+
+# Base de datos SQLite y sesiones con tokens activos
+*.db
+*.sqlite
+*.sqlite3
+xiaomi_session.json
+google_cal_config.json
+gcal_config.json
+tuya_device_assignments.json
+
+# Logs e imágenes personales generadas/subidas en el servidor
+logs/
+static/uploads/
+static/processed/
+static/fotos/
+static/screen.bin
+static/screen_preview.png

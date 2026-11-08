@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block title %}Tarjetas & Servicios • ACeP Hub{% endblock %}
+{% block content %}
+  <!-- Resumen General del Mes -->
+  <section class="bg-slate-900 border border-slate-800 rounded-2xl p-4">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-base font-bold">💳 Tarjetas de Crédito & Servicios</h2>
+      <span class="text-xs font-mono px-2.5 py-1 rounded-full bg-red-950 text-red-300 border border-red-800">
+        Saldo: ${{ "{:,.0f}".format(totals.total_saldo) }}
+      </span>
+    </div>
+    <div class="grid grid-cols-3 gap-2 text-center">
+      <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
+        <div class="text-[10px] uppercase text-slate-400">Total Mes</div>
+        <div class="text-sm font-bold font-mono text-slate-100 mt-0.5">${{ "{:,.0f}".format(totals.total_mes) }}</div>
+      </div>
+      <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
+        <div class="text-[10px] uppercase text-slate-400">Total Mínimos</div>
+        <div class="text-sm font-bold font-mono text-amber-300 mt-0.5">${{ "{:,.0f}".format(totals.total_minimo) }}</div>
+      </div>
+      <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
+        <div class="text-[10px] uppercase text-slate-400">Saldo Pend.</div>
+        <div class="text-sm font-bold font-mono text-emerald-400 mt-0.5">${{ "{:,.0f}".format(totals.total_saldo) }}</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Tabla Interactiva de Tarjetas / Servicios -->
+  <section class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+    <h3 class="text-sm font-bold">📋 Estado Actual en Pantalla E-Paper</h3>
+    <div class="space-y-2.5">
+      {% for item in tarjetas %}
+      <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-2.5">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <img src="{{ url_for('static', filename='icons/logos/' ~ item.logo_empresa ~ '.png') }}" class="w-8 h-8 rounded border border-slate-700" alt="{{ item.logo_empresa }}" />
+            <img src="{{ url_for('static', filename='icons/logos/' ~ item.logo_gasto ~ '.png') }}" class="w-8 h-8 rounded border border-slate-700" alt="{{ item.logo_gasto }}" />
+            <div class="ml-1">
+              <div class="text-xs font-bold text-slate-100">{{ item.etiqueta or (item.logo_empresa|capitalize ~ ' ' ~ item.logo_gasto|upper) }}</div>
+              <div class="text-[11px] text-slate-400">Vto: {{ item.vencimiento or '--/--' }}</div>
+            </div>
+          </div>
+          <div class="text-right font-mono">
+            <div class="text-xs text-slate-400">Total: ${{ "{:,.0f}".format(item.total) }} | Mín: ${{ "{:,.0f}".format(item.minimo) }}</div>
+            <div class="text-sm font-bold {% if item.saldo <= 0 %}text-emerald-400{% elif (item.total - item.saldo) >= item.minimo %}text-amber-400{% else %}text-red-400{% endif %}">
+              {% if item.saldo <= 0 %}✓ PAGADO ($0){% else %}Saldo: ${{ "{:,.0f}".format(item.saldo) }}{% endif %}
+            </div>
+          </div>
+        </div>
+
+        <!-- Botones rápidos de acción con el pulgar -->
+        <div class="flex items-center justify-between gap-1.5 pt-1 border-t border-slate-900">
+          <form action="{{ url_for('gastos_view') }}" method="POST" class="inline">
+            <input type="hidden" name="action" value="pay_min" />
+            <input type="hidden" name="row_id" value="{{ item.id }}" />
+            <button type="submit" class="px-2.5 py-1 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[11px] font-bold">
+              Cubrir Mínimo
+            </button>
+          </form>
+          <form action="{{ url_for('gastos_view') }}" method="POST" class="inline">
+            <input type="hidden" name="action" value="pay_total" />
+            <input type="hidden" name="row_id" value="{{ item.id }}" />
+            <button type="submit" class="px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[11px] font-bold">
+              ✓ Saldar Total
+            </button>
+          </form>
+          <button type="button" onclick="fillEditForm('{{ item.id }}', '{{ item.logo_empresa }}', '{{ item.logo_gasto }}', '{{ item.etiqueta }}', '{{ item.vencimiento }}', '{{ item.total|int }}', '{{ item.minimo|int }}', '{{ item.saldo|int }}')"
+                  class="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 text-[11px] font-bold">
+            ✎ Editar
+          </button>
+          <form action="{{ url_for('gastos_view') }}" method="POST" class="inline" onsubmit="return confirm('¿Eliminar esta fila?');">
+            <input type="hidden" name="action" value="delete" />
+            <input type="hidden" name="row_id" value="{{ item.id }}" />
+            <button type="submit" class="px-2 py-1 rounded-lg bg-red-950/60 text-red-300 text-[11px]">✕</button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- Formulario para Agregar o Editar Fila -->
+  <section id="formSection" class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3.5">
+    <h3 id="formTitle" class="text-sm font-bold text-amber-400">➕ Agregar / Actualizar Tarjeta o Servicio</h3>
+    <form action="{{ url_for('gastos_view') }}" method="POST" class="space-y-3">
+      <input type="hidden" name="action" value="upsert" />
+      <input type="hidden" name="row_id" id="f_row_id" value="" />
+
+      <div class="grid grid-cols-2 gap-2.5">
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">1. Logo Empresa / Banco</label>
+          <select name="logo_empresa" id="f_logo_empresa" class="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-sm font-bold">
+            <option value="galicia">🟠 Banco Galicia</option>
+            <option value="provincia">🟢 Banco Provincia</option>
+            <option value="edese">⚡ EDESE</option>
+            <option value="consorcio">🏢 Consorcio / Edificio</option>
+            <option value="amex">🔵 American Express</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">2. Logo Gasto / Tarjeta</label>
+          <select name="logo_gasto" id="f_logo_gasto" class="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-sm font-bold">
+            <option value="amex">🟦 AMEX</option>
+            <option value="visa">💳 VISA</option>
+            <option value="mastercard">🔴🟠 Mastercard</option>
+            <option value="exp">🟦 EXP (Expensas)</option>
+            <option value="luz">⚡ Luz / Energía</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2.5">
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Etiqueta (opcional)</label>
+          <input type="text" name="etiqueta" id="f_etiqueta" placeholder="Ej: Galicia Amex"
+                 class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Vencimiento (DD/MM)</label>
+          <input type="text" name="vencimiento" id="f_vencimiento" placeholder="Ej: 08/11" maxlength="5"
+                 class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-sm font-mono" />
+        </div>
+      </div>
+
+      <div class="grid grid-cols-3 gap-2">
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">TOTAL ($)</label>
+          <input type="number" name="total" id="f_total" inputmode="decimal" step="any" required placeholder="485000"
+                 class="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-sm font-bold font-mono text-slate-100" />
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">MÍNIMO ($)</label>
+          <input type="number" name="minimo" id="f_minimo" inputmode="decimal" step="any" required placeholder="92000"
+                 class="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-sm font-bold font-mono text-amber-300" />
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">SALDO ($)</label>
+          <input type="number" name="saldo" id="f_saldo" inputmode="decimal" step="any" required placeholder="485000"
+                 class="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-sm font-bold font-mono text-red-300" />
+        </div>
+      </div>
+
+      <button type="submit" class="w-full py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm shadow-lg transition">
+        💾 Guardar y Actualizar Pantalla E-Paper
+      </button>
+    </form>
+  </section>
+
+  <script>
+    function fillEditForm(id, emp, gasto, etiq, vto, total, minimo, saldo) {
+      document.getElementById('f_row_id').value = id;
+      document.getElementById('f_logo_empresa').value = emp;
+      document.getElementById('f_logo_gasto').value = gasto;
+      document.getElementById('f_etiqueta').value = etiq;
+      document.getElementById('f_vencimiento').value = vto;
+      document.getElementById('f_total').value = total;
+      document.getElementById('f_minimo').value = minimo;
+      document.getElementById('f_saldo').value = saldo;
+      document.getElementById('formTitle').textContent = '✎ Editando Fila #' + id + ' (' + etiq + ')';
+      document.getElementById('formSection').scrollIntoView({ behavior: 'smooth' });
+    }
+  </script>
+{% endblock %}

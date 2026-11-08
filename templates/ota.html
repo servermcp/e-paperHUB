@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Actualizaciones OTA • E-Paper Hub{% endblock %}
+{% block content %}
+<div class="space-y-4">
+  <!-- Tarjeta de Versión Activa -->
+  <section class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-lg space-y-3">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="text-2xl">📡</span>
+        <div>
+          <h2 class="text-sm font-bold text-slate-100">Firmware ESP32 OTA</h2>
+          <p class="text-[11px] text-slate-400">Actualización Inalámbrica por Wi-Fi</p>
+        </div>
+      </div>
+      <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+        v{{ ota.version }}
+      </span>
+    </div>
+
+    <div class="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-slate-800">
+      <div class="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/80">
+        <span class="text-[10px] uppercase text-slate-400 block font-semibold">Publicado</span>
+        <span class="text-slate-200 font-mono text-[11px]">{{ ota.uploaded_at or 'Inicial' }}</span>
+      </div>
+      <div class="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/80">
+        <span class="text-[10px] uppercase text-slate-400 block font-semibold">Tamaño Binario</span>
+        <span class="text-slate-200 font-mono text-[11px]">{{ "{:,.1f}".format(ota.size_bytes / 1024) if ota.size_bytes else 0 }} KB</span>
+      </div>
+    </div>
+
+    {% if ota.changelog %}
+    <div class="bg-slate-950/50 p-2.5 rounded-xl border border-slate-800 text-xs text-slate-300">
+      <span class="text-[10px] uppercase text-amber-400 block font-semibold mb-0.5">Notas de versión:</span>
+      {{ ota.changelog }}
+    </div>
+    {% endif %}
+
+    {% if ota.has_binary %}
+    <div class="pt-1">
+      <a href="/api/ota/download" class="w-full block text-center py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition">
+        ⬇️ Descargar archivo firmware.bin
+      </a>
+    </div>
+    {% endif %}
+  </section>
+
+  <!-- Formulario de Subida de Nuevo Firmware -->
+  <section class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-lg space-y-3">
+    <div class="flex items-center gap-2">
+      <span class="text-xl">🚀</span>
+      <h3 class="text-sm font-bold text-slate-200">Publicar Nueva Versión</h3>
+    </div>
+
+    <form action="/api/ota/upload" method="POST" enctype="multipart/form-data" class="space-y-3">
+      <div>
+        <label class="block text-xs font-semibold text-slate-300 mb-1">Nueva Versión (SemVer)</label>
+        <input type="text" name="version" required placeholder="Ej: 1.0.1" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-amber-400 font-mono" />
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-slate-300 mb-1">Notas de Cambios / Changelog</label>
+        <textarea name="changelog" rows="2" placeholder="Ej: Ajuste de brillo, soporte para sensor adicional..." class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-amber-400"></textarea>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-slate-300 mb-1">Archivo de Firmware Compilado (.bin)</label>
+        <input type="file" name="firmware_file" accept=".bin" required class="w-full text-xs text-slate-400 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-amber-500 file:text-slate-950 hover:file:bg-amber-400 cursor-pointer bg-slate-950 rounded-xl border border-slate-700 p-1" />
+        <p class="text-[10px] text-slate-400 mt-1">Exportá el archivo .bin desde Arduino IDE (Programa > Exportar Binarios compilados) o PlatformIO (.pio/build/.../firmware.bin).</p>
+      </div>
+
+      <button type="submit" class="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-md transition active:scale-95">
+        Subir y Desplegar OTA al ESP32
+      </button>
+    </form>
+  </section>
+
+  <!-- Cómo funciona el flujo OTA -->
+  <section class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 space-y-2 text-xs text-slate-400">
+    <h4 class="font-bold text-slate-300 text-xs flex items-center gap-1.5">
+      <span>ℹ️</span> ¿Cómo actualiza la pantalla en casa?
+    </h4>
+    <ul class="list-disc list-inside space-y-1 text-[11px] leading-relaxed">
+      <li>Al despertar por el botón táctil o por el temporizador de 15 min, el ESP32 consulta <code class="text-amber-300 font-mono">/api/ota/check</code>.</li>
+      <li>Si hay una versión superior, descarga automáticamente el binario vía Wi-Fi, flashea la partición OTA y se reinicia sola.</li>
+      <li>Cero cables, cero desarme del marco: todo desde esta interfaz web.</li>
+    </ul>
+  </section>
+</div>
+{% endblock %}

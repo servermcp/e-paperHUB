@@ -1,0 +1,8 @@
+{
+  "version": "1.0.0",
+  "filename": "firmware_v1.0.0.bin",
+  "uploaded_at": "2026-11-05 00:30:00",
+  "size_bytes": 0,
+  "md5": "",
+  "changelog": "Versión base con soporte OTA por Wi-Fi, Google Calendar y red GATURRAKA."
+}

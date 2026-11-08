@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Hub Principal • E-Paper ACeP{% endblock %}
+{% block content %}
+  <!-- Vista previa en vivo del buffer 800x480 (Calibración Papel ACeP) -->
+  <section class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 shadow-lg">
+    <div class="flex items-center justify-between mb-2">
+      <div>
+        <span class="text-xs uppercase tracking-wider text-amber-400 font-bold">Buffer Activo ({{ state.current_mode }})</span>
+        <p class="text-[11px] text-slate-400">Renderizado en {{ state.last_render_ms }} ms • 192.000 bytes (4-bit)</p>
+      </div>
+      <a href="/api/screen.bin" class="text-[11px] px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono">
+        .bin (192KB)
+      </a>
+    </div>
+    <div class="rounded-xl overflow-hidden border-2 border-slate-700 shadow-inner bg-black">
+      <img src="{{ url_for('static', filename='screen_preview.png') }}?v={{ cache_bust }}" alt="Vista previa E-Paper 800x480" class="w-full h-auto block" />
+    </div>
+  </section>
+
+  <!-- Sección 4: Control Remoto de Modos y Vistas -->
+  <section class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+    <h2 class="text-sm font-bold text-slate-200 flex items-center justify-between">
+      <span>🎛️ Control Remoto de Vistas (ESP32)</span>
+      <span class="text-[11px] font-normal text-slate-400">Refresco en vivo (~40s)</span>
+    </h2>
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+      {% for mode_id, label, badge in [
+        ('dashboard', 'Dashboard', 'Clima, Gastos y Domótica'),
+        ('calendar_month', 'Calendario', 'Patrick Hand Doodle'),
+        ('photo_frame', 'Marco Foto', 'Tu Foto Subida'),
+        ('guest_wifi', 'QR Wi-Fi Visitas', 'Acceso para Invitados'),
+        ('diagnostics', 'Diagnóstico', 'Telemetría y barras 7C'),
+        ('carrusel', 'Carrusel Auto', 'Rotación continua 40s')
+      ] %}
+      <form action="{{ url_for('api_render') }}" method="POST">
+        <input type="hidden" name="mode" value="{{ mode_id }}" />
+        <button type="submit" class="w-full text-left p-3 rounded-xl border transition active:scale-95 {% if state.current_mode == mode_id %}bg-amber-500/20 border-amber-400 text-amber-200 ring-2 ring-amber-400/50{% else %}bg-slate-800/70 border-slate-700 text-slate-200 hover:bg-slate-800{% endif %}">
+          <div class="text-xs font-bold flex items-center justify-between">
+            <span>{{ label }}</span>
+            {% if state.current_mode == mode_id %}<span class="text-[9px] px-1.5 py-0.5 rounded bg-amber-500 text-slate-950 font-black">ACTIVO</span>{% endif %}
+          </div>
+          <div class="text-[11px] text-slate-400 mt-1">{{ badge }}</div>
+        </button>
+      </form>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- Accesos Rápidos del Pulgar -->
+  <section class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+    <a href="{{ url_for('gastos_view') }}" class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 text-center hover:border-amber-500/50 transition">
+      <div class="text-2xl mb-1">💸</div>
+      <div class="text-xs font-bold">Cargar Gasto</div>
+      <div class="text-[11px] text-emerald-400 font-mono mt-0.5">${{ "{:,.0f}".format(gastos_sum.total_general) }}</div>
+    </a>
+    <a href="{{ url_for('subir_foto_view') }}" class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 text-center hover:border-amber-500/50 transition">
+      <div class="text-2xl mb-1">🖼️</div>
+      <div class="text-xs font-bold">Subir Foto</div>
+      <div class="text-[11px] text-slate-400 mt-0.5">Crop 800:480</div>
+    </a>
+    <a href="{{ url_for('nota_view') }}" class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 text-center hover:border-amber-500/50 transition">
+      <div class="text-2xl mb-1">📌</div>
+      <div class="text-xs font-bold">Post-it</div>
+      <div class="text-[11px] text-amber-400 mt-0.5">{% if nota %}Activo{% else %}Vacío{% endif %}</div>
+    </a>
+    <a href="{{ url_for('ota_view') }}" class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 text-center hover:border-amber-500/50 transition relative overflow-hidden">
+      <div class="text-2xl mb-1">📡</div>
+      <div class="text-xs font-bold">Firmware OTA</div>
+      <div class="text-[11px] text-amber-300 font-mono mt-0.5">v{{ ota.version }}</div>
+    </a>
+  </section>
+
+  <!-- Estado de Integraciones Reales (Clima, Tuya y Xiaomi) -->
+  <section class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-2.5">
+    <div class="flex items-center justify-between">
+      <h2 class="text-sm font-bold text-slate-200">🏡 Estado Domótica & Clima</h2>
+      <a href="{{ url_for('domotica_view') }}" class="text-[11px] text-amber-400 hover:text-amber-300">Configurar →</a>
+    </div>
+    <div class="divide-y divide-slate-800 text-xs">
+      <div class="py-2 flex justify-between items-center">
+        <span class="text-slate-400">☀️ Clima Open-Meteo</span>
+        <span class="font-semibold text-amber-300">{{ weather.temp_current }}°C • {{ weather.description }} (Lluvia {{ weather.rain_prob }}%)</span>
+      </div>
+      {% for dev in devices %}
+      <div class="py-2 flex justify-between items-center">
+        <span class="text-slate-400">
+          {{ dev.device_name }}
+          <span class="text-[9px] uppercase px-1.5 py-0.5 rounded font-bold {% if dev.integration == 'xiaomi' %}bg-orange-950/80 text-orange-400 border border-orange-800/80{% else %}bg-blue-950/80 text-blue-400 border border-blue-800/80{% endif %}">
+            {{ dev.integration }}
+          </span>
+        </span>
+        <span class="font-semibold {% if 'encendida' in dev.status_text or 'filtrando' in dev.status_text or 'barriendo' in dev.status_text %}text-amber-300{% elif 'cerrado' in dev.status_text or 'cargada' in dev.status_text %}text-emerald-400{% else %}text-slate-300{% endif %}">
+          {{ dev.status_text }}
+        </span>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}

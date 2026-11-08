@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>{% block title %}E-Paper ACeP Smart Hub{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            acep: {
+              black: '#1c1a21',
+              white: '#e4e2da',
+              green: '#2d763e',
+              blue: '#264084',
+              red: '#a82a2c',
+              yellow: '#e0c630',
+              orange: '#c66226'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen pb-24 selection:bg-amber-500 selection:text-slate-950">
+  <!-- Barra superior fija -->
+  <header class="sticky top-0 z-30 backdrop-blur-md bg-slate-900/90 border-b border-slate-800 px-4 py-3 flex items-center justify-between">
+    <a href="{{ url_for('hub') }}" class="flex items-center gap-2.5">
+      <span class="w-3 h-3 rounded-full bg-emerald-400 animate-pulse"></span>
+      <div>
+        <h1 class="font-bold text-base leading-tight tracking-tight">ACeP 7-Color Hub</h1>
+        <p class="text-[11px] text-slate-400">ESP32 E-Paper 800×480 • VPS Tokyo</p>
+      </div>
+    </a>
+    <form action="{{ url_for('api_render') }}" method="POST">
+      <input type="hidden" name="force_integrations" value="true" />
+      <button type="submit" class="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow transition active:scale-95">
+        ↻ Refrescar E-Ink
+      </button>
+    </form>
+  </header>
+
+  <!-- Mensajes Flash -->
+  <main class="max-w-md mx-auto px-4 pt-4 space-y-4">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, msg in messages %}
+          <div class="p-3 rounded-xl text-sm font-medium border {% if category == 'error' %}bg-red-950/80 border-red-700 text-red-200{% else %}bg-emerald-950/80 border-emerald-700 text-emerald-200{% endif %}">
+            {{ msg }}
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Barra de navegación inferior Mobile-First (operable con el pulgar) -->
+  <nav class="fixed bottom-0 inset-x-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-800">
+    <div class="max-w-md mx-auto grid grid-cols-5 text-center py-2">
+      <a href="{{ url_for('hub') }}" class="flex flex-col items-center py-1 text-xs font-semibold {% if request.endpoint == 'hub' %}text-amber-400{% else %}text-slate-400{% endif %}">
+        <span class="text-lg">🖥️</span>
+        <span>Hub / Control</span>
+      </a>
+      <a href="{{ url_for('gastos_view') }}" class="flex flex-col items-center py-1 text-xs font-semibold {% if request.endpoint == 'gastos_view' %}text-amber-400{% else %}text-slate-400{% endif %}">
+        <span class="text-lg">💸</span>
+        <span>Gastos</span>
+      </a>
+      <a href="{{ url_for('subir_foto_view') }}" class="flex flex-col items-center py-1 text-xs font-semibold {% if request.endpoint == 'subir_foto_view' %}text-amber-400{% else %}text-slate-400{% endif %}">
+        <span class="text-lg">🖼️</span>
+        <span>Encuadrar 800×480</span>
+      </a>
+            <a href="{{ url_for('domotica_view') }}" class="flex flex-col items-center py-1 text-xs font-semibold {% if request.endpoint == 'domotica_view' %}text-amber-400{% else %}text-slate-400{% endif %}">
+        <span class="text-lg">🏡</span>
+        <span>Domótica</span>
+      </a>
+      <a href="{{ url_for('nota_view') }}"  class="flex flex-col items-center py-1 text-xs font-semibold {% if request.endpoint == 'nota_view' %}text-amber-400{% else %}text-slate-400{% endif %}">
+        <span class="text-lg">📌</span>
+        <span>Post-it</span>
+      </a>
+    </div>
+  </nav>
+</body>
+</html>

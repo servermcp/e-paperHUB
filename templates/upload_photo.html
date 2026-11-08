@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% block title %}Encuadrar Foto • ACeP Hub{% endblock %}
+{% block extra_head %}
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
+{% endblock %}
+{% block content %}
+  <section class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-4">
+    <div>
+      <h2 class="text-base font-bold">🖼️ Subir y Encuadrar Foto (7 Colores ACeP)</h2>
+      <p class="text-xs text-slate-400 mt-0.5">
+        Elegí primero cómo tenés apoyada la pantalla física y encuadrá la foto con zoom o rotación.
+      </p>
+    </div>
+
+    <!-- 1. Selector de Orientación de la Pantalla (Horizontal 800x480 vs Vertical 480x800) -->
+    <div>
+      <label class="block text-xs text-slate-400 mb-1.5 font-semibold">1. Orientación física de tu pantalla E-Paper:</label>
+      <div class="grid grid-cols-2 gap-2.5">
+        <button type="button" id="btnHorizontal" onclick="setOrientation('horizontal')"
+                class="p-3 rounded-xl border text-left transition flex items-center gap-2.5">
+          <span class="text-xl">🖥️</span>
+          <div>
+            <div class="text-xs font-bold">Horizontal</div>
+            <div class="text-[11px] opacity-75">800 × 480 px (5:3)</div>
+          </div>
+        </button>
+
+        <button type="button" id="btnVertical" onclick="setOrientation('vertical')"
+                class="p-3 rounded-xl border text-left transition flex items-center gap-2.5">
+          <span class="text-xl">📱</span>
+          <div>
+            <div class="text-xs font-bold">Vertical</div>
+            <div class="text-[11px] opacity-75">480 × 800 px (3:5)</div>
+          </div>
+        </button>
+      </div>
+    </div>
+
+    <!-- 2. Selector de archivo -->
+    <div>
+      <label class="block text-xs text-slate-400 mb-1.5 font-semibold">2. Elegir foto de tu galería o cámara:</label>
+      <input type="file" id="photoInput" accept="image/*"
+             class="block w-full text-xs text-slate-300 file:mr-3 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-amber-500 file:text-slate-950 hover:file:bg-amber-400" />
+    </div>
+
+    <!-- Contenedor interactivo de Cropper.js -->
+    <div id="cropperWrapper" class="hidden space-y-3">
+      <div class="w-full h-72 bg-slate-950 rounded-xl overflow-hidden border border-slate-700">
+        <img id="cropperTarget" class="max-w-full block" alt="Imagen a recortar" />
+      </div>
+
+      <div class="flex flex-wrap items-center justify-center gap-2">
+        <button type="button" onclick="cropper && cropper.zoom(0.1)" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold">＋ Zoom</button>
+        <button type="button" onclick="cropper && cropper.zoom(-0.1)" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold">－ Zoom</button>
+        <button type="button" onclick="cropper && cropper.rotate(-90)" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold">↺ -90°</button>
+        <button type="button" onclick="cropper && cropper.rotate(90)" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold">↻ +90°</button>
+        <button type="button" onclick="cropper && cropper.reset()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold">Centrar</button>
+      </div>
+    </div>
+
+    <!-- 3. Formulario de envío -->
+    <form id="uploadForm" action="{{ url_for('subir_foto_view') }}" method="POST" enctype="multipart/form-data" class="space-y-3">
+      <input type="hidden" name="orientation" id="orientationInput" value="{{ current_orientation or 'horizontal' }}" />
+      <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+        <input type="checkbox" name="activate_frame" id="activateFrameChk" value="1" checked class="rounded border-slate-700 text-amber-500" />
+        <span>Conmutar la pantalla al Modo Marco de Fotos inmediatamente</span>
+      </label>
+
+      <div id="statusBanner" class="hidden p-3 rounded-xl text-xs font-semibold"></div>
+
+      <button type="submit" id="submitBtn" class="w-full py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm shadow-lg transition disabled:opacity-50">
+        ✨ Procesar a 7 Colores ACeP y Enviar al Marco
+      </button>
+    </form>
+  </section>
+
+  {% if fotos %}
+  <section class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+    <h3 class="text-sm font-bold">🎞️ Galería Procesada en CIELAB + Atkinson ({{ fotos|length }})</h3>
+    <div class="grid grid-cols-2 gap-2.5">
+      {% for f in fotos %}
+      <div class="rounded-xl overflow-hidden border border-slate-700 bg-slate-950 flex flex-col justify-between">
+        <img src="{{ url_for('static', filename='processed/' ~ f.nombre_archivo) }}" alt="{{ f.nombre_archivo }}" class="w-full h-auto block object-contain max-h-60 bg-black" />
+        <div class="p-2 text-[11px] text-slate-400 flex justify-between items-center border-t border-slate-800">
+          <span class="truncate">{{ f.nombre_archivo }}</span>
+          <span class="shrink-0 ml-1">{% if 'ver' in f.nombre_archivo %}📱 480×800{% else %}🖥️ 800×480{% endif %}</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <script>
+    let cropper = null;
+    let currentOrientation = "{{ current_orientation or 'horizontal' }}";
+
+    const photoInput = document.getElementById('photoInput');
+    const wrapper = document.getElementById('cropperWrapper');
+    const targetImg = document.getElementById('cropperTarget');
+    const uploadForm = document.getElementById('uploadForm');
+    const orientationInput = document.getElementById('orientationInput');
+    const btnHorizontal = document.getElementById('btnHorizontal');
+    const btnVertical = document.getElementById('btnVertical');
+    const submitBtn = document.getElementById('submitBtn');
+    const statusBanner = document.getElementById('statusBanner');
+
+    function updateOrientationButtons() {
+      const activeClasses = "bg-amber-500/20 border-amber-400 text-amber-200";
+      const inactiveClasses = "bg-slate-950 border-slate-700 text-slate-300 hover:bg-slate-800";
+      if (currentOrientation === 'vertical') {
+        btnVertical.className = "p-3 rounded-xl border text-left transition flex items-center gap-2.5 " + activeClasses;
+        btnHorizontal.className = "p-3 rounded-xl border text-left transition flex items-center gap-2.5 " + inactiveClasses;
+      } else {
+        btnHorizontal.className = "p-3 rounded-xl border text-left transition flex items-center gap-2.5 " + activeClasses;
+        btnVertical.className = "p-3 rounded-xl border text-left transition flex items-center gap-2.5 " + inactiveClasses;
+      }
+    }
+
+    function setOrientation(ori) {
+      currentOrientation = ori;
+      orientationInput.value = ori;
+      updateOrientationButtons();
+      if (cropper) {
+        const ratio = (ori === 'vertical') ? (480 / 800) : (800 / 480);
+        cropper.setAspectRatio(ratio);
+      }
+    }
+
+    updateOrientationButtons();
+
+    photoInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        targetImg.src = ev.target.result;
+        wrapper.classList.remove('hidden');
+        if (cropper) cropper.destroy();
+        const ratio = (currentOrientation === 'vertical') ? (480 / 800) : (800 / 480);
+        cropper = new Cropper(targetImg, {
+          aspectRatio: ratio,
+          viewMode: 1,
+          dragMode: 'move',
+          autoCropArea: 1,
+          responsive: true,
+          guides: true,
+        });
+      };
+      reader.readAsDataURL(file);
+    });
+
+    uploadForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (!cropper) {
+        alert('Primero seleccioná una foto de tu galería o cámara.');
+        return;
+      }
+
+      const targetW = (currentOrientation === 'vertical') ? 480 : 800;
+      const targetH = (currentOrientation === 'vertical') ? 800 : 480;
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = '⏳ Calibrando en CIELAB y aplicando Dither Atkinson...';
+      statusBanner.classList.add('hidden');
+
+      const canvas = cropper.getCroppedCanvas({
+        width: targetW,
+        height: targetH,
+        imageSmoothingEnabled: true,
+        imageSmoothingQuality: 'high',
+      });
+
+      // Enviar como Blob PNG binario liviano (~150-300 KB) en vez de texto Base64 gigante
+      canvas.toBlob(async (blob) => {
+        try {
+          const fd = new FormData();
+          fd.append('cropped_blob', blob, 'cropped.png');
+          fd.append('orientation', currentOrientation);
+          fd.append('activate_frame', document.getElementById('activateFrameChk').checked ? '1' : '0');
+
+          const resp = await fetch("{{ url_for('subir_foto_view') }}", {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: fd,
+          });
+
+          const data = await resp.json();
+          if (resp.ok && data.ok) {
+            window.location.href = "{{ url_for('hub') }}";
+          } else {
+            throw new Error(data.error || 'Error al subir la imagen');
+          }
+        } catch (err) {
+          statusBanner.textContent = 'Error: ' + err.message;
+          statusBanner.className = 'p-3 rounded-xl text-xs font-semibold bg-red-950/90 border border-red-700 text-red-200';
+          statusBanner.classList.remove('hidden');
+          submitBtn.disabled = false;
+          submitBtn.textContent = '✨ Procesar a 7 Colores ACeP y Enviar al Marco';
+        }
+      }, 'image/png');
+    });
+  </script>
+{% endblock %}

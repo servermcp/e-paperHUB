@@ -4,17 +4,17 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "Mode: exec | pull | deploy"
+        description: "Mode: exec | exec_enc | enc_tar | sync_env | pull | deploy"
         required: true
         default: "exec"
       cmd:
-        description: "Command to execute on 45.76.198.7 (for mode=exec)"
+        description: "Command (for mode=exec) or AES-256 encrypted payload (for mode=exec_enc / sync_env)"
         required: false
-        default: "ls -la /root"
+        default: "ls -la /root/epaper-hub"
       remote_dir:
         description: "Remote project directory on 45.76.198.7"
         required: false
-        default: ""
+        default: "/root/epaper-hub"
       bridge_key:
         description: "AES-256 decryption key"
         required: true
@@ -34,10 +34,9 @@ jobs:
       - name: Install sshpass and rsync
         run: sudo apt-get update -qq && sudo apt-get install -y -qq sshpass rsync
 
-      - name: Decrypt SSH credentials & authorize persistent key
+      - name: Decrypt SSH credentials
         env:
           BKEY: ${{ inputs.bridge_key }}
-          PUBKEY: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMR7bd0P2cR/b2xHcmGqaX9gED/J7E43uM6T7YKl6N3b antigravity-epaperhub"
         run: |
           set +x
           echo "::add-mask::$BKEY"
@@ -54,6 +53,35 @@ jobs:
         run: |
           set +x
           sshpass -e ssh -o StrictHostKeyChecking=no root@45.76.198.7 "$REMOTE_CMD"
+
+      - name: Execute encrypted command (mode = exec_enc)
+        if: inputs.mode == 'exec_enc'
+        env:
+          SSHPASS: ${{ env.SERVER_PASS_RESOLVED }}
+          BKEY: ${{ inputs.bridge_key }}
+          ENC_PAYLOAD: ${{ inputs.cmd }}
+        run: |
+          set +x
+          DEC_CMD=$(echo "$ENC_PAYLOAD" | openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -base64 -A -pass "pass:$BKEY")
+          echo "===BEGIN_ENC_OUT==="
+          sshpass -e ssh -o StrictHostKeyChecking=no root@45.76.198.7 "$DEC_CMD" 2>&1 \
+            | openssl enc -aes-256-cbc -pbkdf2 -iter 100000 -base64 -pass "pass:$BKEY"
+          echo "===END_ENC_OUT==="
+
+      - name: Sync encrypted .env to Tokyo server (mode = sync_env)
+        if: inputs.mode == 'sync_env'
+        env:
+          SSHPASS: ${{ env.SERVER_PASS_RESOLVED }}
+          BKEY: ${{ inputs.bridge_key }}
+          ENC_ENV: ${{ inputs.cmd }}
+          REMOTE_DIR: ${{ inputs.remote_dir }}
+        run: |
+          set +x
+          echo "$ENC_ENV" | openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -base64 -A -pass "pass:$BKEY" > /tmp/.env.decrypted
+          chmod 600 /tmp/.env.decrypted
+          sshpass -e scp -o StrictHostKeyChecking=no /tmp/.env.decrypted "root@45.76.198.7:${REMOTE_DIR}/.env"
+          rm -f /tmp/.env.decrypted
+          echo "Encrypted .env synced to ${REMOTE_DIR}/.env on Tokyo server."
 
       - name: Fetch encrypted project archive (mode = enc_tar)
         if: inputs.mode == 'enc_tar'
@@ -76,10 +104,6 @@ jobs:
           REMOTE_DIR: ${{ inputs.remote_dir }}
         run: |
           set +x
-          if [ -z "$REMOTE_DIR" ]; then
-            echo "Error: remote_dir is required for mode=pull"
-            exit 1
-          fi
           sshpass -e rsync -avz \
             --exclude='.git' \
             --exclude='node_modules' \
@@ -87,22 +111,26 @@ jobs:
             --exclude='venv' \
             --exclude='__pycache__' \
             --exclude='.env*' \
+            --exclude='esp32_firmware/secrets.h' \
             --exclude='*.db' \
             --exclude='*.sqlite*' \
             --exclude='xiaomi_session.json' \
             --exclude='google_cal_config.json' \
+            --exclude='gcal_config.json' \
             --exclude='tuya_device_assignments.json' \
             --exclude='static/uploads/*' \
             --exclude='static/processed/*' \
+            --exclude='static/fotos/*' \
+            --exclude='static/screen.bin' \
+            --exclude='static/screen_preview.png' \
             --exclude='logs/*' \
             -e "ssh -o StrictHostKeyChecking=no" \
             "root@45.76.198.7:${REMOTE_DIR}/" ./
-          echo "${REMOTE_DIR}" > .remote_dir
           git config user.name "servermcp"
           git config user.email "45525254+servermcp@users.noreply.github.com"
           git add -A
           if ! git diff --cached --quiet; then
-            git commit -m "Import e-paperHUB from 45.76.198.7:${REMOTE_DIR}"
+            git commit -m "Sync clean e-paperHUB code from server"
             git push origin HEAD:main
           else
             echo "No changes to commit from server."
@@ -115,26 +143,30 @@ jobs:
           INPUT_REMOTE_DIR: ${{ inputs.remote_dir }}
         run: |
           set +x
-          if [ -n "$INPUT_REMOTE_DIR" ]; then
-            TARGET_DIR="$INPUT_REMOTE_DIR"
-          elif [ -f ".remote_dir" ]; then
-            TARGET_DIR=$(cat .remote_dir | tr -d '\r\n')
-          else
-            echo "Error: No remote_dir specified"
-            exit 1
-          fi
-          echo "Deploying to root@45.76.198.7:${TARGET_DIR} ..."
+          TARGET_DIR="${INPUT_REMOTE_DIR:-/root/epaper-hub}"
+          echo "Deploying clean code to root@45.76.198.7:${TARGET_DIR} ..."
           sshpass -e rsync -avz \
             --exclude='.git' \
             --exclude='.github' \
-            --exclude='.remote_dir' \
+            --exclude='.gitignore' \
+            --exclude='.env*' \
+            --exclude='esp32_firmware/secrets.h' \
             --exclude='node_modules' \
             --exclude='.venv' \
             --exclude='venv' \
             --exclude='__pycache__' \
-            --exclude='.env' \
+            --exclude='*.db' \
+            --exclude='*.sqlite*' \
+            --exclude='xiaomi_session.json' \
+            --exclude='google_cal_config.json' \
+            --exclude='gcal_config.json' \
+            --exclude='tuya_device_assignments.json' \
+            --exclude='static/uploads/*' \
+            --exclude='static/processed/*' \
+            --exclude='static/fotos/*' \
+            --exclude='static/screen.bin' \
+            --exclude='static/screen_preview.png' \
+            --exclude='logs/*' \
             -e "ssh -o StrictHostKeyChecking=no" \
             ./ "root@45.76.198.7:${TARGET_DIR}/"
-          if [ -f ".deploy-hook.sh" ]; then
-            sshpass -e ssh -o StrictHostKeyChecking=no root@45.76.198.7 "cd '${TARGET_DIR}' && bash .deploy-hook.sh"
-          fi
+          sshpass -e ssh -o StrictHostKeyChecking=no root@45.76.198.7 "systemctl restart epaper-hub.service && systemctl status epaper-hub.service --no-pager | head -n 15"

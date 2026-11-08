@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Post-it Digital • ACeP Hub{% endblock %}
+{% block content %}
+  <section class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-4">
+    <div>
+      <h2 class="text-base font-bold">📌 Post-it Digital de la Heladera</h2>
+      <p class="text-xs text-slate-400 mt-0.5">
+        El mensaje se renderiza en tipografía binaria 1-bit sobre fondo Amarillo ACeP de alto impacto.
+      </p>
+    </div>
+
+    {% if nota %}
+    <div class="p-3.5 rounded-xl bg-amber-400 text-slate-950 border-2 border-slate-950 shadow">
+      <div class="text-[11px] font-bold uppercase tracking-wider text-amber-900">Aviso Actualmente Fijado:</div>
+      <div class="text-base font-bold mt-1">{{ nota.mensaje }}</div>
+    </div>
+    {% endif %}
+
+    <form action="{{ url_for('nota_view') }}" method="POST" class="space-y-3">
+      <input type="hidden" name="action" value="save" />
+      <div>
+        <label class="block text-xs text-slate-400 mb-1">Mensaje urgente (máx 115 caracteres recomendados)</label>
+        <textarea name="mensaje" rows="3" maxlength="140" required
+                  placeholder="Ej: Acordarse de descongelar el pollo y llamar al gasista a las 16hs..."
+                  class="w-full p-3.5 rounded-xl bg-slate-950 border border-slate-700 focus:border-amber-400 focus:outline-none text-sm font-medium">{{ nota.mensaje if nota else '' }}</textarea>
+      </div>
+      <button type="submit" class="w-full py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm shadow-lg transition">
+        📌 Fijar en Pantalla E-Paper
+      </button>
+    </form>
+
+    {% if nota %}
+    <form action="{{ url_for('nota_view') }}" method="POST">
+      <input type="hidden" name="action" value="clear" />
+      <button type="submit" class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold">
+        Limpiar Post-it Actual
+      </button>
+    </form>
+    {% endif %}
+  </section>
+{% endblock %}

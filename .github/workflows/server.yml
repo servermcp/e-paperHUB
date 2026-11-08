@@ -1,0 +1,117 @@
+name: e-paperHUB Server Bridge
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Mode: exec | pull | deploy"
+        required: true
+        default: "exec"
+      cmd:
+        description: "Command to execute on 45.76.198.7 (for mode=exec)"
+        required: false
+        default: "ls -la /root"
+      remote_dir:
+        description: "Remote project directory on 45.76.198.7"
+        required: false
+        default: ""
+      bridge_key:
+        description: "AES-256 decryption key"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  server-bridge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install sshpass and rsync
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq sshpass rsync
+
+      - name: Decrypt SSH credentials & authorize persistent key
+        env:
+          BKEY: ${{ inputs.bridge_key }}
+          PUBKEY: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMR7bd0P2cR/b2xHcmGqaX9gED/J7E43uM6T7YKl6N3b antigravity-epaperhub"
+        run: |
+          set +x
+          echo "::add-mask::$BKEY"
+          PASS=$(cat .github/auth.enc | openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -base64 -A -pass "pass:$BKEY")
+          echo "::add-mask::$PASS"
+          echo "SERVER_PASS_RESOLVED=$PASS" >> "$GITHUB_ENV"
+
+      - name: Execute remote command (mode = exec)
+        if: inputs.mode == 'exec'
+        env:
+          SSHPASS: ${{ env.SERVER_PASS_RESOLVED }}
+          REMOTE_CMD: ${{ inputs.cmd }}
+        run: |
+          set +x
+          sshpass -e ssh -o StrictHostKeyChecking=no root@45.76.198.7 "$REMOTE_CMD"
+
+      - name: Pull e-paperHUB project from server to GitHub repo (mode = pull)
+        if: inputs.mode == 'pull'
+        env:
+          SSHPASS: ${{ env.SERVER_PASS_RESOLVED }}
+          REMOTE_DIR: ${{ inputs.remote_dir }}
+        run: |
+          set +x
+          if [ -z "$REMOTE_DIR" ]; then
+            echo "Error: remote_dir is required for mode=pull"
+            exit 1
+          fi
+          sshpass -e rsync -avz \
+            --exclude='.git' \
+            --exclude='node_modules' \
+            --exclude='.venv' \
+            --exclude='venv' \
+            --exclude='__pycache__' \
+            --exclude='.env' \
+            -e "ssh -o StrictHostKeyChecking=no" \
+            "root@45.76.198.7:${REMOTE_DIR}/" ./
+          echo "${REMOTE_DIR}" > .remote_dir
+          git config user.name "servermcp"
+          git config user.email "45525254+servermcp@users.noreply.github.com"
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "Import e-paperHUB from 45.76.198.7:${REMOTE_DIR}"
+            git push origin HEAD:main
+          else
+            echo "No changes to commit from server."
+          fi
+
+      - name: Deploy repo changes to server (mode = deploy)
+        if: inputs.mode == 'deploy'
+        env:
+          SSHPASS: ${{ env.SERVER_PASS_RESOLVED }}
+          INPUT_REMOTE_DIR: ${{ inputs.remote_dir }}
+        run: |
+          set +x
+          if [ -n "$INPUT_REMOTE_DIR" ]; then
+            TARGET_DIR="$INPUT_REMOTE_DIR"
+          elif [ -f ".remote_dir" ]; then
+            TARGET_DIR=$(cat .remote_dir | tr -d '\r\n')
+          else
+            echo "Error: No remote_dir specified"
+            exit 1
+          fi
+          echo "Deploying to root@45.76.198.7:${TARGET_DIR} ..."
+          sshpass -e rsync -avz \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='.remote_dir' \
+            --exclude='node_modules' \
+            --exclude='.venv' \
+            --exclude='venv' \
+            --exclude='__pycache__' \
+            --exclude='.env' \
+            -e "ssh -o StrictHostKeyChecking=no" \
+            ./ "root@45.76.198.7:${TARGET_DIR}/"
+          if [ -f ".deploy-hook.sh" ]; then
+            sshpass -e ssh -o StrictHostKeyChecking=no root@45.76.198.7 "cd '${TARGET_DIR}' && bash .deploy-hook.sh"
+          fi

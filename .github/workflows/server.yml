@@ -4,15 +4,15 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "Mode: exec | exec_enc | enc_tar | sync_env | pull | deploy"
+        description: "Mode: exec | exec_enc | enc_tar | sync_env | build_ota | pull | deploy"
         required: true
         default: "exec"
       cmd:
-        description: "Command (for mode=exec) or AES-256 encrypted payload (for mode=exec_enc / sync_env)"
+        description: "Command (exec), encrypted payload (exec_enc/sync_env/build_ota)"
         required: false
         default: "ls -la /root/epaper-hub"
       remote_dir:
-        description: "Remote project directory on 45.76.198.7"
+        description: "Remote project directory on 45.76.198.7 or changelog for build_ota"
         required: false
         default: "/root/epaper-hub"
       bridge_key:
@@ -43,6 +43,88 @@ jobs:
           PASS=$(cat .github/auth.enc | openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -base64 -A -pass "pass:$BKEY")
           echo "::add-mask::$PASS"
           echo "SERVER_PASS_RESOLVED=$PASS" >> "$GITHUB_ENV"
+
+      - name: Cache Arduino CLI and ESP32 Core (for mode = build_ota)
+        if: inputs.mode == 'build_ota'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.arduino15
+            ~/bin/arduino-cli
+          key: arduino-esp32c6-core-v1
+
+      - name: Compile ESP32-C6 Firmware & Publish OTA to Tokyo (mode = build_ota)
+        if: inputs.mode == 'build_ota'
+        env:
+          SSHPASS: ${{ env.SERVER_PASS_RESOLVED }}
+          BKEY: ${{ inputs.bridge_key }}
+          ENC_SECRETS_H: ${{ inputs.cmd }}
+          CHANGELOG_MSG: ${{ inputs.remote_dir }}
+        run: |
+          set +x
+          export PATH="$HOME/bin:$PATH"
+          if ! command -v arduino-cli >/dev/null 2>&1; then
+            mkdir -p "$HOME/bin"
+            curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR="$HOME/bin" sh
+          fi
+          if ! arduino-cli core list | grep -q "esp32:esp32"; then
+            arduino-cli config init --overwrite
+            arduino-cli config add board_manager.additional_urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+            arduino-cli core update-index
+            arduino-cli core install esp32:esp32
+          fi
+
+          SKETCH_DIR="/tmp/epaper_acep_hub_esp32_c6"
+          OUT_DIR="/tmp/ota_build_out"
+          rm -rf "$SKETCH_DIR" "$OUT_DIR"
+          mkdir -p "$SKETCH_DIR" "$OUT_DIR"
+
+          cp esp32_firmware/epaper_acep_hub_esp32_c6.ino "$SKETCH_DIR/epaper_acep_hub_esp32_c6.ino"
+          cp esp32_firmware/secrets.example.h "$SKETCH_DIR/secrets.example.h"
+          echo "$ENC_SECRETS_H" | openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -base64 -A -pass "pass:$BKEY" > "$SKETCH_DIR/secrets.h"
+
+          FW_VERSION=$(grep -oP 'FIRMWARE_VERSION\s*=\s*"\K[^"]+' "$SKETCH_DIR/epaper_acep_hub_esp32_c6.ino" || echo "1.1.1-carrusel")
+          echo "Compiling XIAO ESP32-C6 firmware version: $FW_VERSION ..."
+
+          arduino-cli compile \
+            --fqbn esp32:esp32:XIAO_ESP32C6 \
+            --output-dir "$OUT_DIR" \
+            "$SKETCH_DIR"
+
+          BIN_FILE="$OUT_DIR/epaper_acep_hub_esp32_c6.ino.bin"
+          if [ ! -f "$BIN_FILE" ]; then
+            echo "Error: compiled binary not found at $BIN_FILE"
+            ls -la "$OUT_DIR"
+            exit 1
+          fi
+
+          SIZE_BYTES=$(stat -c%s "$BIN_FILE")
+          MD5_HASH=$(md5sum "$BIN_FILE" | awk '{print $1}')
+          NOW_STR=$(TZ="America/Argentina/Buenos_Aires" date "+%Y-%m-%d %H:%M:%S")
+
+          python3 -c '
+          import json, sys
+          ver, size, md5, now_str, chg = sys.argv[1], int(sys.argv[2]), sys.argv[3], sys.argv[4], sys.argv[5]
+          data = {
+              "version": ver,
+              "filename": f"firmware_v{ver}.bin",
+              "uploaded_at": now_str,
+              "size_bytes": size,
+              "md5": md5,
+              "changelog": chg
+          }
+          with open("/tmp/version.json", "w", encoding="utf-8") as f:
+              json.dump(data, f, indent=2, ensure_ascii=False)
+          ' "$FW_VERSION" "$SIZE_BYTES" "$MD5_HASH" "$NOW_STR" "$CHANGELOG_MSG"
+
+          sshpass -e ssh -o StrictHostKeyChecking=no root@45.76.198.7 "mkdir -p /root/epaper-hub/static/ota && cp -f /root/epaper-hub/esp32_firmware/epaper_acep_hub_esp32_c6.ino /root/epaper-hub/esp32_firmware/epaper_acep_hub_esp32_c6.ino.bak 2>/dev/null || true"
+          sshpass -e scp -o StrictHostKeyChecking=no "$BIN_FILE" "root@45.76.198.7:/root/epaper-hub/static/ota/firmware.bin"
+          sshpass -e scp -o StrictHostKeyChecking=no "/tmp/version.json" "root@45.76.198.7:/root/epaper-hub/static/ota/version.json"
+          sshpass -e scp -o StrictHostKeyChecking=no "$SKETCH_DIR/epaper_acep_hub_esp32_c6.ino" "root@45.76.198.7:/root/epaper-hub/esp32_firmware/epaper_acep_hub_esp32_c6.ino"
+          sshpass -e scp -o StrictHostKeyChecking=no "$SKETCH_DIR/secrets.h" "root@45.76.198.7:/root/epaper-hub/esp32_firmware/secrets.h"
+
+          rm -rf "$SKETCH_DIR" "$OUT_DIR" /tmp/version.json
+          echo "OTA Firmware v${FW_VERSION} (${SIZE_BYTES} bytes, MD5: ${MD5_HASH}) compiled and published to Tokyo /root/epaper-hub/static/ota/!"
 
       - name: Execute remote command (mode = exec)
         if: inputs.mode == 'exec'
@@ -121,6 +203,7 @@ jobs:
             --exclude='static/uploads/*' \
             --exclude='static/processed/*' \
             --exclude='static/fotos/*' \
+            --exclude='static/ota/firmware.bin' \
             --exclude='static/screen.bin' \
             --exclude='static/screen_preview.png' \
             --exclude='logs/*' \
@@ -164,6 +247,7 @@ jobs:
             --exclude='static/uploads/*' \
             --exclude='static/processed/*' \
             --exclude='static/fotos/*' \
+            --exclude='static/ota/*' \
             --exclude='static/screen.bin' \
             --exclude='static/screen_preview.png' \
             --exclude='logs/*' \

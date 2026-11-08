@@ -44,7 +44,7 @@
 const char* WIFI_SSID        = SECRET_WIFI_SSID;
 const char* WIFI_PASS        = SECRET_WIFI_PASS;
 const char* VPS_BASE_URL     = SECRET_VPS_HOST "/api/screen.bin";
-const char* FIRMWARE_VERSION = "1.1.0-carrusel";
+const char* FIRMWARE_VERSION = "1.1.1-carrusel";
 const char* OTA_CHECK_URL    = SECRET_VPS_HOST "/api/ota/check";
 const char* OTA_DOWNLOAD_URL = SECRET_VPS_HOST "/api/ota/download";
 
@@ -313,7 +313,8 @@ void loop() {
     delay(100);
   }
 
-  // Al cumplirse el minuto (o presionar el botón), solicitar la siguiente pantalla al servidor
-  Serial.println("\n[CARRUSEL] >> Avanzando a la siguiente pantalla del ciclo...");
+  // Al cumplirse el minuto (o presionar el botón), verificar si hay nuevo firmware OTA y solicitar la siguiente pantalla
+  Serial.println("\n[CARRUSEL] >> Verificando OTA y avanzando a la siguiente pantalla del ciclo...");
+  checkForFirmwareUpdate();
   streamScreenFromVPS("auto");
 }

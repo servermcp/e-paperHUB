@@ -106,6 +106,10 @@ python app.py
 
 ## 📋 Log de Cambios (Changelog)
 
+### `2026-11-08` — `v1.1.2-carrusel` (Pantalla E-Paper `"ACTUALIZANDO... ESP32"` y Restauración Post-OTA)
+- **Pantalla visual de actualización OTA (`static/ota/ota_screen.bin`):** Se adaptó la ilustración de *Las Gaturrakas* (`"ACTUALIZANDO... ESP32"`) a `480×800` vertical con paleta calibrada ACeP de 7 colores (`192.000 bytes`).
+- **Secuencia en ESP32-C6 y Backend:** Antes de iniciar `httpUpdate.update()`, el ESP32 solicita `touches=ota_updating` y refresca el panel con la imagen de actualización; una vez flasheado el firmware y reiniciada la placa, el servidor restaura automáticamente la misma pantalla que se estaba mostrando antes del OTA.
+
 ### `2026-11-08` — `v1.1.1-carrusel` (Seguridad de Credenciales, Limpieza de Repo y Auto-Compilador OTA)
 - **Compilador y Publicador OTA Automático para XIAO ESP32-C6:**
   - Se implementó el flujo `build_ota` con `arduino-cli` (`esp32:esp32:XIAO_ESP32C6`) y caché persistente del core ESP32.

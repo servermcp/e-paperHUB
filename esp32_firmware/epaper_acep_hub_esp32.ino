@@ -244,8 +244,11 @@ void checkForFirmwareUpdate() {
   if (httpCode == 200) {
     String payload = http.getString();
     if (payload.indexOf("\"update_available\":true") >= 0 || payload.indexOf("\"update_available\": true") >= 0) {
-      Serial.println("[OTA] ¡Nueva versión detectada en el servidor VPS! Iniciando actualización...");
+      Serial.println("[OTA] ¡Nueva versión detectada en el servidor VPS! Mostrando pantalla de actualización...");
       http.end();
+
+      lastEtag[0] = '\0';
+      streamScreenFromVPS(0, readBatteryVoltage());
 
       httpUpdate.rebootOnUpdate(true);
       t_httpUpdate_return ret = httpUpdate.update(client, OTA_DOWNLOAD_URL);

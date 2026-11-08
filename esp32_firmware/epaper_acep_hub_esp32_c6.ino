@@ -44,7 +44,7 @@
 const char* WIFI_SSID        = SECRET_WIFI_SSID;
 const char* WIFI_PASS        = SECRET_WIFI_PASS;
 const char* VPS_BASE_URL     = SECRET_VPS_HOST "/api/screen.bin";
-const char* FIRMWARE_VERSION = "1.1.1-carrusel";
+const char* FIRMWARE_VERSION = "1.1.2-carrusel";
 const char* OTA_CHECK_URL    = SECRET_VPS_HOST "/api/ota/check";
 const char* OTA_DOWNLOAD_URL = SECRET_VPS_HOST "/api/ota/download";
 
@@ -235,9 +235,14 @@ void checkForFirmwareUpdate() {
   if (httpCode == 200) {
     String payload = http.getString();
     if (payload.indexOf("update_available") >= 0 && payload.indexOf("true") >= 0) {
-      Serial.println("[OTA] ¡Nueva versión detectada en VPS! Actualizando...");
+      Serial.println("[OTA] ¡Nueva versión detectada en VPS! Mostrando imagen de actualización en E-Paper...");
       http.end();
 
+      // Mostrar en el E-Paper la pantalla 'ACTUALIZANDO... ESP32' antes de flashear
+      lastEtag[0] = '\0';
+      streamScreenFromVPS("ota_updating");
+
+      Serial.println("[OTA] Descargando e instalando nueva versión de firmware...");
       httpUpdate.rebootOnUpdate(true);
       t_httpUpdate_return ret = httpUpdate.update(client, OTA_DOWNLOAD_URL);
       if (ret == HTTP_UPDATE_FAILED) {

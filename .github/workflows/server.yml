@@ -247,7 +247,8 @@ jobs:
             --exclude='static/uploads/*' \
             --exclude='static/processed/*' \
             --exclude='static/fotos/*' \
-            --exclude='static/ota/*' \
+            --exclude='static/ota/firmware.bin' \
+            --exclude='static/ota/version.json' \
             --exclude='static/screen.bin' \
             --exclude='static/screen_preview.png' \
             --exclude='logs/*' \

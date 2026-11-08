@@ -4,6 +4,13 @@ Registro histórico de versiones y cambios del servidor backend y del firmware d
 
 ---
 
+## [v1.1.2-carrusel] — 2026-11-08
+### Agregado
+- **Pantalla E-Paper `"ACTUALIZANDO... ESP32"` pre-OTA (`static/ota/ota_screen.bin`):** Adaptación de la ilustración de *Las Gaturrakas* en `480×800` vertical con dithering ACeP 7-Color (fondo blanco limpio y trazos negros puros).
+- **Flujo Pre-OTA y Restauración Post-Reinicio:** Cuando la XIAO ESP32-C6 detecta una nueva versión OTA, primero dibuja en el E-Paper la pantalla `"ACTUALIZANDO... ESP32"`, luego descarga e instala el firmware, y al reiniciar vuelve a mostrar exactamente la misma pantalla que estaba activa antes de la actualización (`resume_after_ota` en `app.py`).
+
+---
+
 ## [v1.1.1-carrusel] — 2026-11-08
 ### Agregado
 - **Auto-compilador OTA para XIAO ESP32-C6 (`mode=build_ota`):** Compilación automática del archivo `.bin` usando `arduino-cli` (`esp32:esp32:XIAO_ESP32C6`), incremento automático de versión en `epaper_acep_hub_esp32_c6.ino` y publicación directa en `/static/ota/firmware.bin` y `/static/ota/version.json`.

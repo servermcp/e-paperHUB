@@ -369,35 +369,61 @@ def api_screen_bin():
         "5": "diagnostics",
     }
 
-    if explicit_mode:
-        _RUNTIME_STATE["current_mode"] = explicit_mode
-    elif touches in touch_to_mode:
-        _RUNTIME_STATE["current_mode"] = touch_to_mode[touches]
+    if touches in ("0", "ota", "ota_updating") or explicit_mode in ("ota", "ota_updating"):
+        _RUNTIME_STATE["resume_after_ota"] = True
+        if OTA_SCREEN_BIN_FILE.exists():
+            ota_bytes = OTA_SCREEN_BIN_FILE.read_bytes()
+            ota_etag = hashlib.md5(ota_bytes).hexdigest()
+            return Response(
+                ota_bytes,
+                status=200,
+                mimetype="application/octet-stream",
+                headers={
+                    "Content-Length": str(len(ota_bytes)),
+                    "ETag": ota_etag,
+                    "X-Epaper-Mode": "ota_updating",
+                    "X-Render-Ms": "0.0",
+                    "Cache-Control": "no-store",
+                },
+            )
 
-    is_carrusel = (_RUNTIME_STATE.get("current_mode") in ("auto", "cycle", "carrusel")) or (touches in ("auto", "cycle", "carrusel", "next"))
-
-    if is_carrusel:
-        with database.db_session() as conn:
-            fotos_count = conn.execute("SELECT COUNT(*) FROM fotos WHERE activa = 1").fetchone()[0]
-        fotos_count = max(1, fotos_count)
-
-        steps = ["dashboard", "calendar_month"]
-        for _ in range(fotos_count):
-            steps.append("photo_frame")
-        steps.append("guest_wifi")
-        steps.append("diagnostics")
-
-        cycle_idx = _RUNTIME_STATE.get("auto_cycle_index", 0)
-        target_mode = steps[cycle_idx % len(steps)]
-        _RUNTIME_STATE["auto_cycle_index"] = (cycle_idx + 1) % len(steps)
-        info = _trigger_screen_rebuild(mode=target_mode)
+    if _RUNTIME_STATE.get("resume_after_ota") and config.SCREEN_BIN_PATH.exists() and not explicit_mode and touches not in touch_to_mode:
+        _RUNTIME_STATE["resume_after_ota"] = False
+        info = {
+            "mode": _RUNTIME_STATE.get("rendered_mode", _RUNTIME_STATE.get("current_mode", "dashboard")),
+            "elapsed_ms": _RUNTIME_STATE.get("last_render_ms", 0.0),
+        }
     else:
-        target_mode = _RUNTIME_STATE["current_mode"]
-        if not config.SCREEN_BIN_PATH.exists() or _RUNTIME_STATE.get("rendered_mode") != target_mode:
+        if explicit_mode:
+            _RUNTIME_STATE["current_mode"] = explicit_mode
+        elif touches in touch_to_mode:
+            _RUNTIME_STATE["current_mode"] = touch_to_mode[touches]
+
+        is_carrusel = (_RUNTIME_STATE.get("current_mode") in ("auto", "cycle", "carrusel")) or (touches in ("auto", "cycle", "carrusel", "next"))
+
+        if is_carrusel:
+            with database.db_session() as conn:
+                fotos_count = conn.execute("SELECT COUNT(*) FROM fotos WHERE activa = 1").fetchone()[0]
+            fotos_count = max(1, fotos_count)
+
+            steps = ["dashboard", "calendar_month"]
+            for _ in range(fotos_count):
+                steps.append("photo_frame")
+            steps.append("guest_wifi")
+            steps.append("diagnostics")
+
+            cycle_idx = _RUNTIME_STATE.get("auto_cycle_index", 0)
+            target_mode = steps[cycle_idx % len(steps)]
+            _RUNTIME_STATE["auto_cycle_index"] = (cycle_idx + 1) % len(steps)
             info = _trigger_screen_rebuild(mode=target_mode)
             _RUNTIME_STATE["rendered_mode"] = target_mode
         else:
-            info = {"mode": target_mode, "elapsed_ms": _RUNTIME_STATE.get("last_render_ms", 0.0)}
+            target_mode = _RUNTIME_STATE["current_mode"]
+            if not config.SCREEN_BIN_PATH.exists() or _RUNTIME_STATE.get("rendered_mode") != target_mode:
+                info = _trigger_screen_rebuild(mode=target_mode)
+                _RUNTIME_STATE["rendered_mode"] = target_mode
+            else:
+                info = {"mode": target_mode, "elapsed_ms": _RUNTIME_STATE.get("last_render_ms", 0.0)}
 
     raw_bytes = config.SCREEN_BIN_PATH.read_bytes()
     etag = hashlib.md5(raw_bytes).hexdigest()

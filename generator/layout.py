@@ -12,6 +12,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
+from PIL import Image, ImageDraw, ImageFont
 try:
     import qrcode
 except ImportError:

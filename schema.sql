@@ -52,8 +52,12 @@ CREATE TABLE IF NOT EXISTS fotos (
 CREATE TABLE IF NOT EXISTS device_state_cache (
     device_id TEXT PRIMARY KEY,
     device_name TEXT NOT NULL,
-    integration TEXT NOT NULL CHECK (integration IN ('tuya', 'google_home', 'vps')),
+    integration TEXT NOT NULL,
     status_text TEXT NOT NULL,
     icon_type TEXT NOT NULL DEFAULT 'info',
+    enabled BOOLEAN NOT NULL DEFAULT 1,
+    show_mode TEXT NOT NULL DEFAULT 'always',
+    is_active BOOLEAN NOT NULL DEFAULT 0,
+    sort_order INTEGER NOT NULL DEFAULT 0,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

@@ -7,6 +7,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import io
+import threading
 import time
 from datetime import datetime
 from pathlib import Path
@@ -32,7 +33,7 @@ from generator.layout import build_screen_buffer
 from generator.weather import fetch_weather
 from integrations.google_cal import get_upcoming_events
 from integrations.home_assistant import process_ha_webhook_payload
-from integrations.tuya_client import sync_irrigation_status
+from integrations.tuya_client import sync_irrigation_status, get_last_tuya_sync_age
 from integrations.xiaomi_client import get_qr_status, start_qr_login_session, sync_romina_status
 
 app = Flask(__name__)
@@ -59,8 +60,15 @@ def _trigger_screen_rebuild(mode: str | None = None, force_integrations: bool = 
     target_mode = mode if mode else _RUNTIME_STATE["current_mode"]
     _RUNTIME_STATE["current_mode"] = target_mode
 
+    # Smart TTL: si se renderiza el Dashboard y pasaron más de 60s desde la última sincronización de Tuya
+    should_sync_tuya = force_integrations or (target_mode == "dashboard" and get_last_tuya_sync_age() > 60.0)
+    if should_sync_tuya:
+        try:
+            sync_irrigation_status()
+        except Exception as exc:
+            print(f"[Tuya Sync] Error sincronizando: {exc}")
+
     if force_integrations:
-        sync_irrigation_status()
         fetch_weather(force_refresh=True)
 
     cal_events = get_upcoming_events(max_results=2, force_refresh=force_integrations)
@@ -75,8 +83,43 @@ def _trigger_screen_rebuild(mode: str | None = None, force_integrations: bool = 
     return info
 
 
+# ------------------------------------------------------------------------------
+# Hilo Demonio en Segundo Plano para Monitoreo Continuo de IoT (Tuya)
+# ------------------------------------------------------------------------------
+_IOT_WORKER_THREAD: threading.Thread | None = None
+_IOT_WORKER_LOCK = threading.Lock()
+
+
+def _start_background_iot_worker() -> None:
+    global _IOT_WORKER_THREAD
+    with _IOT_WORKER_LOCK:
+        if _IOT_WORKER_THREAD is not None and _IOT_WORKER_THREAD.is_alive():
+            return
+
+        def _worker_loop():
+            print("[IoT Worker] Poller en segundo plano iniciado (intervalo: 60s)")
+            time.sleep(5)  # Esperar brevemente tras el arranque
+            while True:
+                try:
+                    res = sync_irrigation_status()
+                    if res.get("ok") and res.get("state_changed"):
+                        cur_m = _RUNTIME_STATE.get("current_mode", "dashboard")
+                        print(f"[IoT Worker] Cambio en estado de dispositivos Tuya detectado. Regenerando pantalla...")
+                        if cur_m in ("dashboard", "auto", "carrusel", "cycle"):
+                            _trigger_screen_rebuild(mode="dashboard")
+                except Exception as exc:
+                    print(f"[IoT Worker] Error en sincronización periódica: {exc}")
+
+                for _ in range(30):
+                    time.sleep(2)
+
+        _IOT_WORKER_THREAD = threading.Thread(target=_worker_loop, daemon=True, name="epaper_iot_poller")
+        _IOT_WORKER_THREAD.start()
+
+
 with app.app_context():
     database.init_db()
+    _start_background_iot_worker()
     if not config.SCREEN_BIN_PATH.exists():
         _trigger_screen_rebuild("dashboard")
 

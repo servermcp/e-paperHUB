@@ -16,10 +16,12 @@ import os
 import random
 import threading
 import time
-from pathlib import Path
 from typing import Any, Dict, List
 import requests
-from Crypto.Cipher import ARC4
+try:
+    from Crypto.Cipher import ARC4
+except ImportError:
+    ARC4 = None
 
 import config
 import database

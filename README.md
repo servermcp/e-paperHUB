@@ -106,6 +106,11 @@ python app.py
 
 ## 📋 Log de Cambios (Changelog)
 
+### `2026-11-09` — `v1.1.7` (Sincronización Automática en Segundo Plano de Domótica IoT & Smart TTL)
+- **Monitoreo Continuo de IoT (`_start_background_iot_worker`):** Hilo demonio en segundo plano que sondea periódicamente (cada 60s) la nube de Tuya Cloud para obtener el estado real de los 22 dispositivos (portón, luces, climatización, riego).
+- **Detección Automática de Eventos:** Si el portón se abre o se cierra, o cambia el número de luces encendidas, se detecta de inmediato (`state_changed`), se actualiza la base de datos `device_state_cache` y se auto-regenera la pantalla en caso de estar en el Dashboard o modo carrusel.
+- **Smart TTL en el Dashboard (`get_last_tuya_sync_age`):** Si pasaron más de 60s desde la última sincronización, cualquier solicitud o renderizado del Dashboard refresca primero los estados de Tuya en tiempo real antes de pintar la pantalla.
+
 ### `2026-11-09` — `v1.1.6` (Temas de Dashboard Seleccionables: Crayón, Muji y Bento + Pack Clima IA)
 - **3 Temas de Dashboard a Pantalla Completa (480x800 px, `generator/dashboard_themes.py`):**
   - **🖍️ Crayón Real (Trazo de Nene):** Con tipografía `Crayon Libre` (CC0 textura cera), trazos imperfectos ondulados, resaltadores y sellos de cera.

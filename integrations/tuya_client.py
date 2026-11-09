@@ -104,7 +104,18 @@ def fetch_all_tuya_devices() -> List[Dict[str, Any]]:
     return all_devs
 
 
+_LAST_SYNC_TS: float = 0.0
+
+
+def get_last_tuya_sync_age() -> float:
+    """Retorna la cantidad de segundos transcurridos desde la última sincronización con Tuya."""
+    if _LAST_SYNC_TS <= 0.0:
+        return 999999.0
+    return time.time() - _LAST_SYNC_TS
+
+
 def sync_irrigation_status() -> Dict[str, Any]:
+    global _LAST_SYNC_TS
     try:
         devs = fetch_all_tuya_devices()
         if not devs:
@@ -113,6 +124,14 @@ def sync_irrigation_status() -> Dict[str, Any]:
         assignments = load_device_assignments()
         pina_on = 0
         sgo_on = 0
+        state_changed = False
+
+        # Cargar estados actuales para detectar cambios críticos (ej. portón abierto/cerrado)
+        with database.db_session() as conn:
+            prev_rows = conn.execute(
+                "SELECT device_id, status_text, is_active FROM device_state_cache"
+            ).fetchall()
+            prev_states = {r["device_id"]: (r["status_text"], r["is_active"]) for r in prev_rows}
 
         for d in devs:
             dev_id = str(d.get("id", ""))
@@ -129,45 +148,68 @@ def sync_irrigation_status() -> Dict[str, Any]:
             elif group == "porton_main":
                 is_open = bool(status_map.get("doorcontact_state") or status_map.get("switch_1"))
                 p_txt = "Abierto" if is_open else "Cerrado"
+                new_act = 1 if is_open else 0
+                if prev_states.get("porton_main") != (p_txt, new_act):
+                    state_changed = True
                 with database.db_session() as conn:
                     conn.execute(
                         "UPDATE device_state_cache SET status_text = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE device_id = 'porton_main'",
-                        (p_txt, 1 if is_open else 0),
+                        (p_txt, new_act),
                     )
             elif group == "temp_pina":
                 raw_t = status_map.get("temp_current") or status_map.get("va_temperature")
                 if isinstance(raw_t, (int, float)):
                     t_val = raw_t / 10.0 if raw_t > 80 else float(raw_t)
+                    t_txt = f"{t_val:.1f}°"
+                    if prev_states.get("temp_pina", (None,))[0] != t_txt:
+                        state_changed = True
                     with database.db_session() as conn:
                         conn.execute(
                             "UPDATE device_state_cache SET status_text = ?, updated_at = CURRENT_TIMESTAMP WHERE device_id = 'temp_pina'",
-                            (f"{t_val:.1f}°",),
+                            (t_txt,),
                         )
             elif group == "riego_main":
                 if online:
                     is_w = bool(status_map.get("switch_1") or status_map.get("switch"))
                     r_txt = "Regando" if is_w else "Próximo 06:30"
+                    r_act = 1 if is_w else 0
+                    if prev_states.get("riego_main") != (r_txt, r_act):
+                        state_changed = True
                     with database.db_session() as conn:
                         conn.execute(
                             "UPDATE device_state_cache SET status_text = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE device_id = 'riego_main'",
-                            (r_txt, 1 if is_w else 0),
+                            (r_txt, r_act),
                         )
             elif group == "pileta_filtro":
                 is_f = online and bool(status_map.get("switch_1") or status_map.get("switch"))
+                f_txt = "Filtrando" if is_f else "Apagada"
+                f_act = 1 if is_f else 0
+                if prev_states.get("pileta_filtro") != (f_txt, f_act):
+                    state_changed = True
                 with database.db_session() as conn:
                     conn.execute(
                         "UPDATE device_state_cache SET status_text = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE device_id = 'pileta_filtro'",
-                        ("Filtrando" if is_f else "Apagada", 1 if is_f else 0),
+                        (f_txt, f_act),
                     )
+
+        pina_txt = f"{pina_on} encendidas"
+        pina_act = 1 if pina_on > 0 else 0
+        if prev_states.get("luces_pina") != (pina_txt, pina_act):
+            state_changed = True
+
+        sgo_txt = f"{sgo_on} encendidas"
+        sgo_act = 1 if sgo_on > 0 else 0
+        if prev_states.get("luces_santiago") != (sgo_txt, sgo_act):
+            state_changed = True
 
         with database.db_session() as conn:
             conn.execute(
                 "UPDATE device_state_cache SET status_text = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE device_id = 'luces_pina'",
-                (f"{pina_on} encendidas", 1 if pina_on > 0 else 0),
+                (pina_txt, pina_act),
             )
             conn.execute(
                 "UPDATE device_state_cache SET status_text = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE device_id = 'luces_santiago'",
-                (f"{sgo_on} encendidas", 1 if sgo_on > 0 else 0),
+                (sgo_txt, sgo_act),
             )
 
         # Si no hay ningun dispositivo asignado a la pileta, asegurar que quede en estado Apagada / Inactiva
@@ -178,6 +220,13 @@ def sync_irrigation_status() -> Dict[str, Any]:
                     "UPDATE device_state_cache SET status_text = 'Apagada', is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE device_id = 'pileta_filtro'"
                 )
 
-        return {"ok": True, "devices_total": len(devs), "pina_on": pina_on, "sgo_on": sgo_on}
+        _LAST_SYNC_TS = time.time()
+        return {
+            "ok": True,
+            "state_changed": state_changed,
+            "devices_total": len(devs),
+            "pina_on": pina_on,
+            "sgo_on": sgo_on,
+        }
     except Exception as exc:
         return {"ok": False, "error": str(exc)}

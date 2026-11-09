@@ -4,6 +4,15 @@ Registro histórico de versiones y cambios del servidor backend y del firmware d
 
 ---
 
+## [v1.1.7] — 2026-11-09
+### Agregado
+- **Sincronización Automática en Segundo Plano de Domótica IoT (Tuya) & Smart TTL:**
+  - **Worker Demonio Continuo (`_start_background_iot_worker`):** Hilo en segundo plano en `app.py` que consulta periódicamente (cada 60s) la nube de Tuya Cloud para obtener el estado real de los 22 dispositivos (portón, luces, temperatura, riego).
+  - **Detección Automática de Cambios de Estado:** Si el portón se abre o se cierra, o cambia el número de luces encendidas, se detecta el cambio de inmediato (`state_changed`), se actualiza la base de datos `device_state_cache` y se dispara la regeneración de pantalla en caso de estar en el Dashboard o modo carrusel.
+  - **Smart TTL en el Generador de Pantalla (`get_last_tuya_sync_age`):** Si pasaron más de 60 segundos desde la última sincronización con Tuya, la función `_trigger_screen_rebuild(mode="dashboard")` refresca automáticamente los estados antes de componer la imagen del E-Paper.
+
+---
+
 ## [v1.1.6] — 2026-11-09
 ### Agregado
 - **3 Temas de Dashboard Seleccionables desde la Web (`crayon`, `muji`, `bento`):**

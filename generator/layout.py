@@ -308,147 +308,20 @@ def _fmt_money(val: float) -> str:
 
 def render_dashboard_mode(
     calendar_events: Optional[List[Dict[str, str]]] = None,
+    theme: Optional[str] = None,
 ) -> AcepCanvas:
-    canvas = AcepCanvas(width=PORTRAIT_W, height=PORTRAIT_H)
-
-    now = datetime.now()
-    date_label = f"{_DAYS_ES[now.weekday()]} {now.day:02d} {_MONTHS_ES[now.month - 1]}"
-    time_label = now.strftime("%H:%M")
-
-    weather = fetch_weather()
-    tarjetas = database.list_tarjetas_gastos()
-    totales = database.get_tarjetas_totals()
-    devices = database.get_visible_dashboard_devices()
-
-    if calendar_events is None:
-        calendar_events = [
-            {"time": "10:30", "title": "Revisión contratos & proveedores"},
-            {"time": "18:00", "title": "Turno control / Compras supermercado"},
-        ]
-
-    # --------------------------------------------------------------------------
-    # 1. ARRIBA: CLIMA SUELTO (y: 16 .. 176)
-    # --------------------------------------------------------------------------
-    canvas.draw_text_1bit(20, 14, date_label, config.ACEP_COLOR_BLACK, font_size=15)
-    canvas.draw_text_1bit(0, 14, time_label, config.ACEP_COLOR_BLUE, font_size=15, mono=True, align_right_x=460)
-    canvas.draw_divider(y=38, x0=20, x1=460, thickness=2)
-
-    if not canvas.draw_weather_icon(18, 46, weather["icon_name"], size=72):
-        canvas.draw_vector_icon(20, 50, weather["icon_name"], size=68, hw_color=weather["icon_hw_color"])
-    canvas.draw_text_1bit(100, 46, f"{weather['temp_current']}°", config.ACEP_COLOR_BLACK, font_size=44)
-    canvas.draw_text_1bit(102, 102, weather["description"], config.ACEP_COLOR_BLUE, font_size=17, max_width=195)
-
-    canvas.draw_text_1bit(0, 50, f"▲ {weather['temp_max']}°", config.ACEP_COLOR_RED, font_size=16, align_right_x=460)
-    canvas.draw_text_1bit(0, 74, f"▼ {weather['temp_min']}°", config.ACEP_COLOR_BLUE, font_size=16, align_right_x=460)
-    rain_col = config.ACEP_COLOR_RED if weather["rain_prob"] >= 50 else config.ACEP_COLOR_BLACK
-    canvas.draw_text_1bit(0, 98, f"Lluvia {weather['rain_prob']}%", rain_col, font_size=15, align_right_x=460)
-    canvas.draw_text_1bit(
-        20, 136,
-        f"Humedad {weather['humidity']}%   •   Viento {weather['wind_kmh']} km/h",
-        config.ACEP_COLOR_BLACK,
-        font_size=13,
-        mono=True,
+    from generator.dashboard_themes import (
+        render_dashboard_crayon,
+        render_dashboard_muji,
+        render_dashboard_bento,
     )
-
-    canvas.draw_divider(y=166, x0=20, x1=460, thickness=2)
-
-    # --------------------------------------------------------------------------
-    # 2. PRÓXIMOS 2 EVENTOS DEL CALENDARIO (y: 178 .. 268)
-    # --------------------------------------------------------------------------
-    ev_y = 178
-    for idx, ev in enumerate(calendar_events[:2]):
-        pill_bg = config.ACEP_COLOR_GREEN if idx == 0 else config.ACEP_COLOR_BLACK
-        pill_fg = config.ACEP_COLOR_WHITE if idx == 0 else config.ACEP_COLOR_YELLOW
-        canvas.fill_rect(20, ev_y, 86, ev_y + 26, pill_bg)
-        canvas.draw_text_1bit(27, ev_y + 4, ev.get("time", "--:--"), pill_fg, font_size=14, mono=True)
-        canvas.draw_text_1bit(98, ev_y + 3, ev.get("title", ""), config.ACEP_COLOR_BLACK, font_size=16, max_width=360)
-        ev_y += 40
-
-    canvas.draw_divider(y=266, x0=20, x1=460, thickness=2)
-
-    # --------------------------------------------------------------------------
-    # 3. TABLA DE TARJETAS Y SERVICIOS: LOGO EMP | LOGO GASTO | TOTAL | MÍNIMO | SALDO
-    #    (y: 278 .. 582)
-    # --------------------------------------------------------------------------
-    # Encabezado limpio de columnas
-    canvas.draw_text_1bit(20, 278, "EMP / GASTO", config.ACEP_COLOR_BLUE, font_size=13, mono=True)
-    canvas.draw_text_1bit(0, 278, "TOTAL", config.ACEP_COLOR_BLACK, font_size=13, mono=True, align_right_x=232)
-    canvas.draw_text_1bit(0, 278, "MÍNIMO", config.ACEP_COLOR_BLACK, font_size=13, mono=True, align_right_x=344)
-    canvas.draw_text_1bit(0, 278, "SALDO", config.ACEP_COLOR_RED, font_size=13, mono=True, align_right_x=460)
-    canvas.draw_divider(y=300, x0=20, x1=460, thickness=1)
-
-    row_y = 308
-    for item in tarjetas[:5]:
-        # 1. Logo Empresa (32x32) + Logo Gasto (32x32)
-        canvas.stamp_logo_icon(20, row_y, item["logo_empresa"])
-        canvas.stamp_logo_icon(58, row_y, item["logo_gasto"])
-
-        # Día de vencimiento pequeño al lado si existe
-        vto = str(item.get("vencimiento", "")).strip()
-        if vto:
-            canvas.draw_text_1bit(94, row_y + 9, vto[:5], config.ACEP_COLOR_BLUE, font_size=12, mono=True)
-
-        total_val = float(item["total"])
-        min_val = float(item["minimo"])
-        saldo_val = float(item["saldo"])
-        pagado_val = max(0.0, total_val - saldo_val)
-
-        # Semáforo cromático inteligente para la columna SALDO:
-        # - Verde ("PAGADO") si saldo == 0
-        # - Naranja si ya se pagó al menos el mínimo (pagado >= minimo) pero queda saldo
-        # - Rojo si aún no se cubrió ni siquiera el pago mínimo
-        if saldo_val <= 0:
-            saldo_str = "PAGADO"
-            saldo_col = config.ACEP_COLOR_GREEN
-        elif pagado_val >= min_val and min_val > 0:
-            saldo_str = _fmt_money(saldo_val)
-            saldo_col = config.ACEP_COLOR_ORANGE
-        else:
-            saldo_str = _fmt_money(saldo_val)
-            saldo_col = config.ACEP_COLOR_RED
-
-        canvas.draw_text_1bit(0, row_y + 7, _fmt_money(total_val), config.ACEP_COLOR_BLACK, font_size=15, mono=True, align_right_x=232)
-        canvas.draw_text_1bit(0, row_y + 7, _fmt_money(min_val), config.ACEP_COLOR_BLACK, font_size=15, mono=True, align_right_x=344)
-        canvas.draw_text_1bit(0, row_y + 7, saldo_str, saldo_col, font_size=15, mono=True, align_right_x=460)
-
-        canvas.draw_divider(y=row_y + 37, x0=20, x1=460, thickness=1, dashed=True)
-        row_y += 43
-
-    # Fila de Totales del Mes al pie de la tabla
-    tot_y = max(row_y + 2, 528)
-    canvas.fill_rect(20, tot_y, 460, tot_y + 30, config.ACEP_COLOR_YELLOW)
-    canvas.stroke_rect(20, tot_y, 460, tot_y + 30, config.ACEP_COLOR_BLACK, thickness=1)
-    canvas.draw_text_1bit(28, tot_y + 6, "TOTAL MES", config.ACEP_COLOR_BLACK, font_size=14, mono=True)
-    canvas.draw_text_1bit(0, tot_y + 6, _fmt_money(totales["total_mes"]), config.ACEP_COLOR_BLACK, font_size=14, mono=True, align_right_x=232)
-    canvas.draw_text_1bit(0, tot_y + 6, _fmt_money(totales["total_minimo"]), config.ACEP_COLOR_BLACK, font_size=14, mono=True, align_right_x=344)
-    tot_saldo_col = config.ACEP_COLOR_GREEN if totales["total_saldo"] <= 0 else config.ACEP_COLOR_RED
-    canvas.draw_text_1bit(0, tot_y + 6, _fmt_money(totales["total_saldo"]), tot_saldo_col, font_size=15, mono=True, align_right_x=454)
-
-    canvas.draw_divider(y=572, x0=20, x1=460, thickness=2)
-
-    # --------------------------------------------------------------------------
-    # 4. DOMÓTICA (RIEGO TUYA + GOOGLE HOME) + QR COMPACTO AL HUB (y: 586 .. 786)
-    # --------------------------------------------------------------------------
-    dev_y = 582
-    for dev in devices[:7]:
-        st_txt = dev["status_text"]
-        st_low = st_txt.lower()
-        if any(w in st_low for w in ("encendida", "cerrado", "filtrando", "regando", "barriendo")):
-            ind_col = config.ACEP_COLOR_GREEN if ("cerrado" in st_low or "regando" in st_low or "filtrando" in st_low) else config.ACEP_COLOR_ORANGE
-        elif "°" in st_low or "proximo" in st_low or "próximo" in st_low:
-            ind_col = config.ACEP_COLOR_BLUE
-        else:
-            ind_col = config.ACEP_COLOR_RED
-
-        canvas.fill_rect(20, dev_y + 4, 27, dev_y + 21, ind_col)
-        canvas.draw_text_1bit(34, dev_y + 2, f"{dev['device_name']}:", config.ACEP_COLOR_BLACK, font_size=14, max_width=150)
-        canvas.draw_text_1bit(170, dev_y + 2, st_txt, ind_col, font_size=14, max_width=160)
-        dev_y += 28
-
-    qr_w, qr_h = canvas.draw_qr_code(342, 598, config.HUB_QR_URL, box_size=3, border=1)
-    canvas.draw_text_1bit(348, 604 + qr_h, "ESCANEAR HUB", config.ACEP_COLOR_BLACK, font_size=13, mono=True)
-
-    return canvas
+    selected_theme = (theme or database.get_dashboard_theme()).lower().strip()
+    if selected_theme == "muji":
+        return render_dashboard_muji(calendar_events=calendar_events)
+    elif selected_theme == "bento":
+        return render_dashboard_bento(calendar_events=calendar_events)
+    else:
+        return render_dashboard_crayon(calendar_events=calendar_events)
 
 
 def render_photo_frame_mode(photo_path: Optional[Path] = None) -> AcepCanvas:
@@ -571,6 +444,15 @@ def build_screen_buffer(
     elif m in ("diag", "diagnostics", "5"):
         canvas = render_diagnostics_mode(esp32_telemetry=esp32_telemetry)
         resolved_mode = "diagnostics"
+    elif m in ("crayon", "dashboard_crayon"):
+        canvas = render_dashboard_mode(calendar_events=calendar_events, theme="crayon")
+        resolved_mode = "dashboard"
+    elif m in ("muji", "dashboard_muji"):
+        canvas = render_dashboard_mode(calendar_events=calendar_events, theme="muji")
+        resolved_mode = "dashboard"
+    elif m in ("bento", "dashboard_bento"):
+        canvas = render_dashboard_mode(calendar_events=calendar_events, theme="bento")
+        resolved_mode = "dashboard"
     else:
         canvas = render_dashboard_mode(calendar_events=calendar_events)
         resolved_mode = "dashboard"

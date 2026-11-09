@@ -119,6 +119,7 @@ def hub():
     weather = fetch_weather()
     fotos = database.list_fotos(limit=6)
     ota_info = get_ota_info()
+    current_theme = database.get_dashboard_theme()
     return render_template(
         "hub.html",
         state=_RUNTIME_STATE,
@@ -128,6 +129,7 @@ def hub():
         weather=weather,
         fotos=fotos,
         ota=ota_info,
+        dashboard_theme=current_theme,
         cache_bust=int(time.time()),
     )
 
@@ -403,6 +405,8 @@ def api_render():
         ori = str(payload.get("orientation")).lower().strip()
         if ori in ("horizontal", "vertical"):
             _RUNTIME_STATE["orientation"] = ori
+    if "theme" in payload:
+        database.set_dashboard_theme(payload.get("theme"))
     force_int = str(payload.get("force_integrations", "false")).lower() in ("1", "true", "yes")
 
     if mode in ("carrusel", "auto", "cycle"):
@@ -420,6 +424,18 @@ def api_render():
         flash(f"Buffer regenerado en {info['elapsed_ms']} ms (Modo: {info['mode']}).", "success")
         return redirect(url_for("hub"))
     return jsonify({"ok": True, **info})
+
+
+@app.route("/api/dashboard/theme", methods=["POST"])
+def api_dashboard_theme():
+    payload = request.get_json(silent=True) or request.form
+    theme = payload.get("theme", "crayon").strip().lower()
+    selected = database.set_dashboard_theme(theme)
+    info = _trigger_screen_rebuild("dashboard")
+    if request.accept_mimetypes.accept_html and not request.is_json:
+        flash(f"Tema de Dashboard cambiado a {selected.upper()}.", "success")
+        return redirect(url_for("hub"))
+    return jsonify({"ok": True, "theme": selected, **info})
 
 
 @app.route("/api/screen.bin", methods=["GET"])

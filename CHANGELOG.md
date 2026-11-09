@@ -4,6 +4,23 @@ Registro histórico de versiones y cambios del servidor backend y del firmware d
 
 ---
 
+## [v1.1.6] — 2026-11-09
+### Agregado
+- **3 Temas de Dashboard Seleccionables desde la Web (`crayon`, `muji`, `bento`):**
+  - **🖍️ Crayón Real (Trazo de Nene):** Renderizado auténtico con la tipografía `Crayon Libre` (CC0 con textura de cera), líneas onduladas a mano, cajas con resaltador y sellitos de estado `¡PAGADO!`.
+  - **⚪ Muji Minimal (E-Ink Studio):** Diseño sobrio y limpio en sintonía directa con el nuevo Calendario mensual. Tipografía geométrica `Roboto`, divisores sutiles de 1px a todo lo ancho y cápsulas redondeadas.
+  - **🍱 Bento Grid (Modular Tech):** Módulos contemporáneos redondeados de alta densidad informativa con borde definido y distribución prolija.
+- **Pack Completo de 7 Íconos de Clima en Crayón (`static/icons/weather_crayon/`):**
+  - Generación asistida por IA reproduciendo la técnica de cera, espirales y trazo infantil del sol original aportado por el usuario.
+  - Íconos incluidos y mapeados automáticamente a los códigos WMO de Open-Meteo: `01d` (Sol Despejado), `01n` (Luna Serena), `02d/03d` (Sol con Nubes), `04d` (Cubierto), `10d` (Lluvia), `11d` (Tormenta) y `13d` (Nieve).
+- **Control Web y Persistencia en Base de Datos:**
+  - Nueva tabla `system_config` en SQLite para persistir `dashboard_theme`.
+  - Botonera de cambio instantáneo de 1 clic en el panel web (`hub.html`), regenerando el búfer E-Paper en caliente.
+  - Nuevo endpoint `/api/dashboard/theme` (POST) para cambio vía web o API.
+  - Aprovechamiento del ancho total (full-width) de 480 px con márgenes mínimos de 14-16 px.
+
+---
+
 ## [v1.1.5] — 2026-11-09
 ### Agregado
 - **Rediseño Completo del Calendario Mensual (Estilo Muji / Minimalista Japonés):**

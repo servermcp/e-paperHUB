@@ -17,6 +17,34 @@
     </div>
   </section>
 
+  <!-- Selector de Estilo / Tema del Dashboard -->
+  <section class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+    <div class="flex items-center justify-between">
+      <h2 class="text-sm font-bold text-slate-200 flex items-center gap-2">
+        <span>🎨</span> Estilo del Dashboard
+      </h2>
+      <span class="text-[11px] text-amber-400 font-mono uppercase font-bold">Activo: {{ dashboard_theme }}</span>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+      {% for th_id, th_name, th_desc in [
+        ('crayon', '🖍️ Crayón Real', 'Trazo cera, sol y letra de nene'),
+        ('muji', '⚪ Muji Minimal', 'Puro y limpio como el Calendario'),
+        ('bento', '🍱 Bento Grid', 'Tarjetas modulares tech modernas')
+      ] %}
+      <form action="{{ url_for('api_dashboard_theme') }}" method="POST">
+        <input type="hidden" name="theme" value="{{ th_id }}" />
+        <button type="submit" class="w-full text-left p-3 rounded-xl border transition active:scale-95 {% if dashboard_theme == th_id %}bg-amber-500/20 border-amber-400 text-amber-200 ring-2 ring-amber-400/50{% else %}bg-slate-800/70 border-slate-700 text-slate-200 hover:bg-slate-800{% endif %}">
+          <div class="text-xs font-bold flex items-center justify-between">
+            <span>{{ th_name }}</span>
+            {% if dashboard_theme == th_id %}<span class="text-[9px] px-1.5 py-0.5 rounded bg-amber-500 text-slate-950 font-black">ACTIVO</span>{% endif %}
+          </div>
+          <div class="text-[11px] text-slate-400 mt-1">{{ th_desc }}</div>
+        </button>
+      </form>
+      {% endfor %}
+    </div>
+  </section>
+
   <!-- Sección 4: Control Remoto de Modos y Vistas -->
   <section class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
     <h2 class="text-sm font-bold text-slate-200 flex items-center justify-between">

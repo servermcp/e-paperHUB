@@ -285,3 +285,40 @@ def update_device_config(device_id: str, enabled: bool, show_mode: str, is_activ
             "UPDATE device_state_cache SET enabled = ?, show_mode = ?, is_active = ?, status_text = ?, updated_at = CURRENT_TIMESTAMP WHERE device_id = ?",
             (1 if enabled else 0, show_mode, 1 if is_active else 0, status_text.strip(), device_id),
         )
+
+
+# ==============================================================================
+# 6. CONFIGURACIÓN DEL SISTEMA (KEY-VALUE) Y TEMA DE DASHBOARD
+# ==============================================================================
+
+def get_config(key: str, default: str = "") -> str:
+    with db_session() as conn:
+        row = conn.execute("SELECT value FROM system_config WHERE key = ?", (key,)).fetchone()
+        return str(row["value"]) if row else default
+
+
+def set_config(key: str, value: str) -> None:
+    with db_session() as conn:
+        conn.execute(
+            """
+            INSERT INTO system_config (key, value, updated_at)
+            VALUES (?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(key) DO UPDATE SET
+                value = excluded.value,
+                updated_at = CURRENT_TIMESTAMP
+            """,
+            (key, str(value)),
+        )
+
+
+def get_dashboard_theme() -> str:
+    theme = get_config("dashboard_theme", "crayon").lower().strip()
+    return theme if theme in ("crayon", "muji", "bento") else "crayon"
+
+
+def set_dashboard_theme(theme: str) -> str:
+    t = str(theme).lower().strip()
+    if t not in ("crayon", "muji", "bento"):
+        t = "crayon"
+    set_config("dashboard_theme", t)
+    return t

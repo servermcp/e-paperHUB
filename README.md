@@ -106,6 +106,17 @@ python app.py
 
 ## 📋 Log de Cambios (Changelog)
 
+### `2026-11-09` — `v1.1.6` (Temas de Dashboard Seleccionables: Crayón, Muji y Bento + Pack Clima IA)
+- **3 Temas de Dashboard a Pantalla Completa (480x800 px, `generator/dashboard_themes.py`):**
+  - **🖍️ Crayón Real (Trazo de Nene):** Con tipografía `Crayon Libre` (CC0 textura cera), trazos imperfectos ondulados, resaltadores y sellos de cera.
+  - **⚪ Muji Minimal (E-Ink Studio):** Pureza tipográfica, divisores 1px edge-to-edge y pastillas idénticas al nuevo Calendario.
+  - **🍱 Bento Grid (Modular Tech):** Módulos contemporáneos con esquinas redondeadas y alta densidad de información.
+- **Pack Completo de 7 Íconos de Clima en Crayón (`static/icons/weather_crayon/`):**
+  - Creados con IA tomando como semilla de estilo el sol original aportado por el usuario (Sol, Luna serena, Parcial nublado, Cubierto, Lluvia, Tormenta, Nieve).
+- **Selector Web y Persistencia:**
+  - Nueva tabla `system_config` en SQLite y endpoint `/api/dashboard/theme` (POST).
+  - Selector con 1 clic en el panel web (`hub.html`) que regenera el búfer `.bin` y preview al instante.
+
 ### `2026-11-09` — `v1.1.5` (Nuevo Calendario Minimalista Muji E-Ink con Barras de Eventos)
 - **Rediseño Completo del Modo Calendario Mensual (`generator/calendar_view.py`):**
   - Reproducción pixel-perfect de la estética japonesa minimalista (`Calendario.jpg`) para panel ACeP 7 Colores (`480×800` vertical).

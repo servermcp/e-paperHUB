@@ -10,7 +10,7 @@ Registro histórico de versiones y cambios del servidor backend y del firmware d
   - Reproducción pixel-perfect del diseño de papel minimalista (`Calendario.jpg`) para panel ACeP 7 Colores (`480×800` vertical).
   - Fondo blanco puro con fuentes tipográficas nítidas (`Roboto-Bold`, `Roboto-Medium`, `Roboto-Regular`).
   - Cabecera: Año (izq), Número Gigante de Mes (centro) y Hora actual en tiempo real (der).
-  - Encabezados de días (`S M T W T F S`): Domingo en Rojo, Lunes a Viernes en Negro sólido, Sábado en Azul cian.
+  - Encabezados de días en español (`D L M M J V S`): Domingo en Rojo, Lunes a Viernes en Negro sólido, Sábado en Azul cian.
   - Placa circular sólida en Rojo para el día actual ("HOY") con número en Blanco invertido.
   - Días de desborde del mes previo y posterior desvanecidos con trama checkerboard 50% (gris claro en tinta electrónica).
   - Feriados nacionales argentinos destacados automáticamente con número en Rojo y pastilla informativa.

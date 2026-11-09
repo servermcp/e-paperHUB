@@ -4,7 +4,7 @@ generator/calendar_view.py — Calendario Mensual Estilo Minimalista Japonés / 
 Inspirado en el diseño limpio de papel digital:
 - Fondo blanco puro.
 - Cabecera: Año (izq), Número Gigante de Mes (centro), Hora actual (der).
-- Días de la semana: S (Rojo), M T W T F (Negro), S (Azul).
+- Días de la semana en español: D (Rojo), L M M J V (Negro), S (Azul).
 - Grilla: Domingos en rojo, Sábados en azul, Feriados nacionales en rojo.
 - Día actual ("HOY"): Placa circular roja sólida con número blanco invertido.
 - Días del mes previo/posterior: Desvanecidos en gris claro (trama checkerboard 50% para tinta electrónica).
@@ -283,12 +283,12 @@ def render_monthly_calendar_canvas():
     w_m = tb_m[2] - tb_m[0]
     draw.text(((PORTRAIT_W - w_m) // 2 - tb_m[0], 25 - tb_m[1]), m_str, font=font_month, fill=COLOR_RGB_BLACK)
 
-    # 2. Encabezados de días: S M T W T F S
+    # 2. Encabezados de días en español: D L M M J V S
     margin_x = 28
     grid_w = PORTRAIT_W - margin_x * 2
     col_w = grid_w / 7.0
 
-    weekday_letters = ["S", "M", "T", "W", "T", "F", "S"]
+    weekday_letters = ["D", "L", "M", "M", "J", "V", "S"]
     weekday_colors = [
         COLOR_RGB_RED,    # Domingo: Rojo
         COLOR_RGB_BLACK,  # Lunes: Negro

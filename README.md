@@ -111,7 +111,7 @@ python app.py
   - Reproducción pixel-perfect de la estética japonesa minimalista (`Calendario.jpg`) para panel ACeP 7 Colores (`480×800` vertical).
   - Fondo blanco puro, fuentes sans-serif nítidas (`Roboto-Bold`, `Roboto-Medium`, `Roboto-Regular`), sin líneas de cuadrícula para máxima limpieza visual.
   - Cabecera: Año (izq), Número Gigante de Mes (centro) y Hora actual en tiempo real (der).
-  - Encabezados de días: Domingo en Rojo, Lunes a Viernes en Negro sólido, Sábado en Azul cian.
+  - Encabezados de días en español (`D L M M J V S`): Domingo en Rojo, Lunes a Viernes en Negro sólido, Sábado en Azul cian.
   - Placa circular sólida en Rojo para el día actual ("HOY") con número en Blanco invertido.
   - Días de desborde del mes previo y posterior renderizados con trama checkerboard al 50% (gris suave de tinta electrónica).
   - Feriados nacionales argentinos destacados en Rojo con etiqueta informativa.

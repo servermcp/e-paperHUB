@@ -6,6 +6,16 @@ La filosofía del proyecto es **Cero Renderizado en el Microcontrolador**: el se
 
 ---
 
+## 📸 Vistas de Pantalla (E-Paper ACeP 7 Colores 480×800)
+
+| Dashboard (Crayón) | Dashboard (Muji Minimal) | Calendario Minimalista | Marco de Fotos (*Las Gaturrakas*) |
+| :---: | :---: | :---: | :---: |
+| <img src="docs/screenshots/dashboard_crayon.png" width="190" alt="Dashboard Crayón" /> | <img src="docs/screenshots/dashboard_muji.png" width="190" alt="Dashboard Muji" /> | <img src="docs/screenshots/calendar_muji.png" width="190" alt="Calendario Minimalista" /> | <img src="docs/screenshots/photo_cat.png" width="190" alt="Marco de Fotos - Gaturrakas" /> |
+
+> **Nota:** La pantalla E-Paper rota automáticamente en modo carrusel o se navega tocando la pantalla / botón de hardware. El tema del dashboard (Crayón, Muji o Bento) se puede alternar con un solo clic desde la interfaz web móvil.
+
+---
+
 ## ✨ Características Principales
 
 - 🎨 **Pipeline Gráfico Calibrado para E-Paper ACeP (7 Colores):**

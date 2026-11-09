@@ -27,6 +27,8 @@ Registro histórico de versiones y cambios del servidor backend y del firmware d
   - Botonera de cambio instantáneo de 1 clic en el panel web (`hub.html`), regenerando el búfer E-Paper en caliente.
   - Nuevo endpoint `/api/dashboard/theme` (POST) para cambio vía web o API.
   - Aprovechamiento del ancho total (full-width) de 480 px con márgenes mínimos de 14-16 px.
+- **Galería Visual de Capturas en README (`docs/screenshots/`):**
+  - Incorporación de capturas de pantalla auténticas a resolución nativa (`480×800 px`) para el E-Paper ACeP de 7 colores: Dashboard Crayón, Dashboard Muji, Calendario Mensual Muji y foto dithered en primer plano de *Las Gaturrakas* (sin presencia de humanos).
 
 ---
 

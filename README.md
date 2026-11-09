@@ -106,6 +106,21 @@ python app.py
 
 ## 📋 Log de Cambios (Changelog)
 
+### `2026-11-09` — `v1.1.5` (Nuevo Calendario Minimalista Muji E-Ink con Barras de Eventos)
+- **Rediseño Completo del Modo Calendario Mensual (`generator/calendar_view.py`):**
+  - Reproducción pixel-perfect de la estética japonesa minimalista (`Calendario.jpg`) para panel ACeP 7 Colores (`480×800` vertical).
+  - Fondo blanco puro, fuentes sans-serif nítidas (`Roboto-Bold`, `Roboto-Medium`, `Roboto-Regular`), sin líneas de cuadrícula para máxima limpieza visual.
+  - Cabecera: Año (izq), Número Gigante de Mes (centro) y Hora actual en tiempo real (der).
+  - Encabezados de días: Domingo en Rojo, Lunes a Viernes en Negro sólido, Sábado en Azul cian.
+  - Placa circular sólida en Rojo para el día actual ("HOY") con número en Blanco invertido.
+  - Días de desborde del mes previo y posterior renderizados con trama checkerboard al 50% (gris suave de tinta electrónica).
+  - Feriados nacionales argentinos destacados en Rojo con etiqueta informativa.
+- **Barras y Pastillas de Eventos (Google Calendar iCal):**
+  - Eventos de varios días con barras horizontales continuas y esquinas redondeadas que cruzan las columnas y se adaptan semana a semana.
+  - Eventos de un día con pastillas redondeadas bajo el número del día.
+  - Categorización cromática inteligente (Verde para viajes/vacaciones, Rojo para feriados/cumpleaños, Azul para turnos/médico, Naranja para vencimientos/pagos).
+  - Mapeo directo y ultra-nítido a la matriz de hardware ACeP (`0x0..0x6`).
+
 ### `2026-11-08` — `v1.1.4` (Gestión, Eliminación y Activación Rápida de Fotos)
 - **Eliminación Segura de Fotos (`/fotos/eliminar/<id>`):**
   - Botón de borrado directo con confirmación en la galería de `/subir-foto`.

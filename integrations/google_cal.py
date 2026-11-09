@@ -11,9 +11,8 @@ import os
 import re
 import time
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from typing import Any, Dict, List
-import requests
+import urllib.request
 
 import config
 
@@ -108,9 +107,10 @@ def get_upcoming_events(max_results: int = 2, force_refresh: bool = False) -> Li
     ical_url = cfg.get("ical_url", "").strip()
     if ical_url:
         try:
-            r = requests.get(ical_url, timeout=8.0)
-            r.raise_for_status()
-            parsed = _parse_ics_upcoming(r.text, max_results=max_results)
+            req = urllib.request.Request(ical_url, headers={"User-Agent": "e-paperHUB/1.1"})
+            with urllib.request.urlopen(req, timeout=8.0) as resp:
+                ics_text = resp.read().decode("utf-8", errors="ignore")
+            parsed = _parse_ics_upcoming(ics_text, max_results=max_results)
             if not parsed:
                 parsed = [{"time": "--:--", "title": "Sin eventos próximos en agenda"}]
             _CAL_CACHE["timestamp"] = now_ts

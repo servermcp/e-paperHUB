@@ -4,6 +4,24 @@ Registro histórico de versiones y cambios del servidor backend y del firmware d
 
 ---
 
+## [v1.1.5] — 2026-11-09
+### Agregado
+- **Rediseño Completo del Calendario Mensual (Estilo Muji / Minimalista Japonés):**
+  - Reproducción pixel-perfect del diseño de papel minimalista (`Calendario.jpg`) para panel ACeP 7 Colores (`480×800` vertical).
+  - Fondo blanco puro con fuentes tipográficas nítidas (`Roboto-Bold`, `Roboto-Medium`, `Roboto-Regular`).
+  - Cabecera: Año (izq), Número Gigante de Mes (centro) y Hora actual en tiempo real (der).
+  - Encabezados de días (`S M T W T F S`): Domingo en Rojo, Lunes a Viernes en Negro sólido, Sábado en Azul cian.
+  - Placa circular sólida en Rojo para el día actual ("HOY") con número en Blanco invertido.
+  - Días de desborde del mes previo y posterior desvanecidos con trama checkerboard 50% (gris claro en tinta electrónica).
+  - Feriados nacionales argentinos destacados automáticamente con número en Rojo y pastilla informativa.
+- **Barras y Pastillas de Eventos (Google Calendar iCal):**
+  - Eventos de varios días: Barras horizontales continuas con extremos redondeados que cruzan las columnas de la semana y continúan en la siguiente fila si cruzan de semana, con el título centrado bajo la barra.
+  - Eventos de un solo día: Pastillas redondeadas centradas bajo el número del día con etiqueta legible.
+  - Categorización cromática inteligente (Viajes/Vacaciones -> Verde, Cumpleaños/Feriados -> Rojo, Turnos/Médico -> Azul, Finanzas/Pagos -> Naranja).
+  - Mapeo directo y ultra-nítido a los índices de hardware ACeP (`0x0..0x6`).
+
+---
+
 ## [v1.1.4] — 2026-11-08
 ### Agregado
 - **Gestión y Eliminación de Fotos (`/fotos/eliminar/<id>`):**

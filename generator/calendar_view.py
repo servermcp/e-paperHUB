@@ -476,7 +476,7 @@ def render_monthly_calendar_canvas():
 
             # Título del evento bajo la barra
             y_txt = y_bar + bar_h + 2
-            max_txt_w = max(col_w * (c_end - c_start + 1) + 12, col_w + 12)
+            max_txt_w = max(col_w * (c_end - c_start + 1) + 20, col_w + 20)
 
             disp_title = ev_title
             while disp_title:

@@ -215,10 +215,29 @@ def pick_next_carousel_foto() -> Optional[Dict[str, Any]]:
         conn.execute("UPDATE fotos SET mostrada_veces = mostrada_veces + 1 WHERE id = ?", (row["id"],))
         return dict(row)
 
-def list_fotos(limit: int = 24) -> List[Dict[str, Any]]:
+def list_fotos(limit: int = 36) -> List[Dict[str, Any]]:
     with db_session() as conn:
         rows = conn.execute("SELECT id, nombre_archivo, fecha_subida, activa, mostrada_veces FROM fotos ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
         return [dict(r) for r in rows]
+
+def get_foto_by_id(foto_id: int) -> Optional[Dict[str, Any]]:
+    with db_session() as conn:
+        row = conn.execute("SELECT id, nombre_archivo, fecha_subida, activa, mostrada_veces FROM fotos WHERE id = ?", (foto_id,)).fetchone()
+        return dict(row) if row else None
+
+def delete_foto(foto_id: int) -> Optional[str]:
+    """
+    Elimina una foto de la base de datos por su ID y devuelve el nombre de archivo
+    eliminado (o None si no existía).
+    """
+    with db_session() as conn:
+        row = conn.execute("SELECT nombre_archivo FROM fotos WHERE id = ?", (foto_id,)).fetchone()
+        if not row:
+            return None
+        nombre_archivo = row["nombre_archivo"]
+        conn.execute("DELETE FROM fotos WHERE id = ?", (foto_id,))
+        return nombre_archivo
+
 
 def upsert_device_state(device_id: str, device_name: str, integration: str, status_text: str, icon_type: str = "info") -> None:
     with db_session() as conn:

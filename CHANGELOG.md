@@ -4,6 +4,18 @@ Registro histórico de versiones y cambios del servidor backend y del firmware d
 
 ---
 
+## [v1.1.4] — 2026-11-08
+### Agregado
+- **Gestión y Eliminación de Fotos (`/fotos/eliminar/<id>`):**
+  - Botón de eliminación con confirmación modal interactiva en la galería del panel web (`/subir-foto`).
+  - Limpieza sincronizada en base de datos SQLite (`fotos`) y borrado seguro de los archivos físicos en disco (`static/uploads/` y `static/processed/`).
+  - Auto-actualización del búfer de pantalla si la foto eliminada estaba actualmente desplegada en el marco E-Paper.
+- **Activación Rápida de Fotos (`/fotos/activar/<id>`):**
+  - Botón *"Mostrar"* en cada tarjeta de la galería para enviar cualquier foto previa directamente a la pantalla física sin tener que volver a subirla ni recortarla.
+  - Ampliación del límite de fotos visualizadas en la galería a 36 elementos.
+
+---
+
 ## [v1.1.3] — 2026-11-08
 ### Mejorado
 - **Calibración Perceptual CIE94 para E-Paper ACeP 7-Color:** Reemplazo de la métrica euclidiana cruda CIELAB 1976 por la norma estándar **CIE94** (con escala de tolerancia cromática $S_C$ y de tono $S_H$). Esto desbloquea el uso natural del pigmento Amarillo en pieles y evita que el algoritmo descarte el amarillo en favor exclusivo del Naranja y Rojo.

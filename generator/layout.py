@@ -551,6 +551,7 @@ def build_screen_buffer(
     calendar_events: Optional[List[Dict[str, str]]] = None,
     esp32_telemetry: Optional[Dict[str, Any]] = None,
     orientation: str = "vertical",
+    photo_path: Optional[Path] = None,
 ) -> Dict[str, Any]:
     t0 = time.perf_counter()
     m = mode.lower().strip()
@@ -559,7 +560,7 @@ def build_screen_buffer(
         canvas = render_monthly_calendar_canvas()
         resolved_mode = "calendar_month"
     elif m in ("photo", "photo_frame", "3"):
-        canvas = render_photo_frame_mode()
+        canvas = render_photo_frame_mode(photo_path=photo_path)
         resolved_mode = "photo_frame"
     elif m in ("guest", "guest_wifi", "wifi", "4"):
         canvas = render_guest_wifi_mode()

@@ -9,7 +9,9 @@ import hashlib
 import io
 import time
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict
+
 
 from flask import (
     Flask,
@@ -307,8 +309,90 @@ def subir_foto_view():
             flash(f"Error al procesar la foto: {exc}", "error")
             return redirect(url_for("subir_foto_view"))
 
-    fotos = database.list_fotos(limit=12)
+    fotos = database.list_fotos(limit=36)
     return render_template("upload_photo.html", fotos=fotos, current_orientation=_RUNTIME_STATE["orientation"])
+
+
+@app.route("/fotos/eliminar/<int:foto_id>", methods=["POST"])
+def eliminar_foto_view(foto_id: int):
+    try:
+        nombre_archivo = database.delete_foto(foto_id)
+        if not nombre_archivo:
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.is_json:
+                return jsonify({"ok": False, "error": "Foto no encontrada."}), 404
+            flash("La foto seleccionada no existe o ya fue eliminada.", "error")
+            return redirect(url_for("subir_foto_view"))
+
+        clean_name = Path(nombre_archivo).name
+        orig_file = config.UPLOADS_DIR / clean_name
+        proc_file = config.PROCESSED_DIR / clean_name
+        if orig_file.exists():
+            try:
+                orig_file.unlink()
+            except Exception:
+                pass
+        if proc_file.exists():
+            try:
+                proc_file.unlink()
+            except Exception:
+                pass
+
+        # Si el modo actual de la pantalla es el marco de fotos, actualizar el buffer con otra foto
+        if _RUNTIME_STATE.get("current_mode") == "photo_frame":
+            build_screen_buffer(mode="photo_frame", orientation=_RUNTIME_STATE["orientation"])
+
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.is_json:
+            return jsonify({"ok": True, "message": "Foto eliminada con éxito."})
+
+        flash("Foto eliminada correctamente del servidor.", "success")
+        return redirect(url_for("subir_foto_view"))
+    except Exception as exc:
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.is_json:
+            return jsonify({"ok": False, "error": str(exc)}), 500
+        flash(f"Error al eliminar la foto: {exc}", "error")
+        return redirect(url_for("subir_foto_view"))
+
+
+@app.route("/fotos/activar/<int:foto_id>", methods=["POST"])
+def activar_foto_view(foto_id: int):
+    try:
+        foto = database.get_foto_by_id(foto_id)
+        if not foto:
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.is_json:
+                return jsonify({"ok": False, "error": "Foto no encontrada."}), 404
+            flash("La foto seleccionada no existe.", "error")
+            return redirect(url_for("subir_foto_view"))
+
+        clean_name = Path(foto["nombre_archivo"]).name
+        orig_file = config.UPLOADS_DIR / clean_name
+        if not orig_file.exists():
+            flash("El archivo original de la foto no existe en el servidor.", "error")
+            return redirect(url_for("subir_foto_view"))
+
+        is_vertical = "ver" in clean_name
+        orientation = "vertical" if is_vertical else "horizontal"
+        _RUNTIME_STATE["orientation"] = orientation
+        _RUNTIME_STATE["current_mode"] = "photo_frame"
+
+        info = build_screen_buffer(
+            mode="photo_frame",
+            orientation=orientation,
+            photo_path=orig_file,
+        )
+        _RUNTIME_STATE["last_render_ms"] = info["elapsed_ms"]
+        _RUNTIME_STATE["last_updated"] = datetime.now().strftime("%H:%M:%S")
+
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.is_json:
+            return jsonify({"ok": True, "message": "Foto enviada al marco E-Paper."})
+
+        flash("¡Foto enviada al marco E-Paper!", "success")
+        return redirect(url_for("subir_foto_view"))
+    except Exception as exc:
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.is_json:
+            return jsonify({"ok": False, "error": str(exc)}), 500
+        flash(f"Error al activar la foto: {exc}", "error")
+        return redirect(url_for("subir_foto_view"))
+
 
 
 @app.route("/api/render", methods=["POST"])

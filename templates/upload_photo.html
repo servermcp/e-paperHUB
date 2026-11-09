@@ -77,14 +77,31 @@
 
   {% if fotos %}
   <section class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
-    <h3 class="text-sm font-bold">🎞️ Galería Procesada en CIELAB + Atkinson ({{ fotos|length }})</h3>
-    <div class="grid grid-cols-2 gap-2.5">
+    <div class="flex items-center justify-between">
+      <h3 class="text-sm font-bold">🎞️ Galería en el Servidor ({{ fotos|length }})</h3>
+      <span class="text-xs text-slate-400">Podés mostrarla en pantalla o eliminarla</span>
+    </div>
+    <div id="galleryGrid" class="grid grid-cols-2 gap-2.5">
       {% for f in fotos %}
-      <div class="rounded-xl overflow-hidden border border-slate-700 bg-slate-950 flex flex-col justify-between">
+      <div id="card-foto-{{ f.id }}" class="rounded-xl overflow-hidden border border-slate-700 bg-slate-950 flex flex-col justify-between transition-all duration-300">
         <img src="{{ url_for('static', filename='processed/' ~ f.nombre_archivo) }}" alt="{{ f.nombre_archivo }}" class="w-full h-auto block object-contain max-h-60 bg-black" />
-        <div class="p-2 text-[11px] text-slate-400 flex justify-between items-center border-t border-slate-800">
-          <span class="truncate">{{ f.nombre_archivo }}</span>
-          <span class="shrink-0 ml-1">{% if 'ver' in f.nombre_archivo %}📱 480×800{% else %}🖥️ 800×480{% endif %}</span>
+        <div class="p-2.5 space-y-2 border-t border-slate-800 bg-slate-900/70">
+          <div class="text-[11px] text-slate-400 flex justify-between items-center">
+            <span class="truncate max-w-[110px]" title="{{ f.nombre_archivo }}">{{ f.nombre_archivo }}</span>
+            <span class="shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-mono">
+              {% if 'ver' in f.nombre_archivo %}📱 480×800{% else %}🖥️ 800×480{% endif %}
+            </span>
+          </div>
+          <div class="flex items-center gap-1.5 pt-0.5">
+            <button type="button" onclick="mostrarFoto({{ f.id }})" title="Mostrar en pantalla ahora"
+                    class="flex-1 py-1.5 px-2 rounded-lg bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-slate-300 text-xs font-semibold transition flex items-center justify-center gap-1 active:scale-95">
+              <span>🖼️</span> <span>Mostrar</span>
+            </button>
+            <button type="button" onclick="eliminarFoto({{ f.id }}, '{{ f.nombre_archivo }}')" title="Eliminar foto del servidor"
+                    class="py-1.5 px-2.5 rounded-lg bg-red-950/60 hover:bg-red-600 text-red-300 hover:text-white border border-red-800/60 text-xs font-semibold transition flex items-center justify-center gap-1 active:scale-95">
+              <span>🗑️</span>
+            </button>
+          </div>
         </div>
       </div>
       {% endfor %}
@@ -201,5 +218,47 @@
         }
       }, 'image/png');
     });
+
+    async function eliminarFoto(id, nombre) {
+      if (!confirm(`¿Eliminar esta foto permanentemente del servidor?\n\n${nombre}`)) {
+        return;
+      }
+      try {
+        const resp = await fetch(`/fotos/eliminar/${id}`, {
+          method: 'POST',
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        });
+        const data = await resp.json();
+        if (resp.ok && data.ok) {
+          const card = document.getElementById(`card-foto-${id}`);
+          if (card) {
+            card.style.opacity = '0';
+            card.style.transform = 'scale(0.85)';
+            setTimeout(() => card.remove(), 300);
+          }
+        } else {
+          alert('Error al eliminar: ' + (data.error || 'Error desconocido'));
+        }
+      } catch (err) {
+        alert('Error al conectar con el servidor: ' + err.message);
+      }
+    }
+
+    async function mostrarFoto(id) {
+      try {
+        const resp = await fetch(`/fotos/activar/${id}`, {
+          method: 'POST',
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        });
+        const data = await resp.json();
+        if (resp.ok && data.ok) {
+          window.location.href = "{{ url_for('hub') }}";
+        } else {
+          alert('Error al activar la foto: ' + (data.error || 'Error desconocido'));
+        }
+      } catch (err) {
+        alert('Error al conectar con el servidor: ' + err.message);
+      }
+    }
   </script>
 {% endblock %}

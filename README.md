@@ -106,6 +106,15 @@ python app.py
 
 ## 📋 Log de Cambios (Changelog)
 
+### `2026-11-08` — `v1.1.4` (Gestión, Eliminación y Activación Rápida de Fotos)
+- **Eliminación Segura de Fotos (`/fotos/eliminar/<id>`):**
+  - Botón de borrado directo con confirmación en la galería de `/subir-foto`.
+  - Eliminación sincronizada del registro en la base de datos SQLite y de los archivos en disco (`static/uploads/` y `static/processed/`).
+  - Auto-regeneración del búfer del marco E-Paper en caso de que la foto borrada estuviera activa.
+- **Activación Rápida en Pantalla (`/fotos/activar/<id>`):**
+  - Botón *"Mostrar"* en cada tarjeta de la galería para enviar fotos guardadas directamente al marco E-Paper sin tener que re-subirlas.
+  - Galería extendida a 36 fotos por página.
+
 ### `2026-11-08` — `v1.1.3` (Calibración Perceptual CIE94 y Protección Inteligente de Tonos de Piel)
 - **Corrección de "Caras Coloradas / Quemadas":**
   - Implementación de la norma internacional **CIE94** en la tabla 3D de cuantización perceptual (`generator/dither.py`). Se ponderan el croma ($S_C$) y el tono ($S_H$), eliminando la penalización artificial que excluía al pigmento Amarillo para tonos cálidos.

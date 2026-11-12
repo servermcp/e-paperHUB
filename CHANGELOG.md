@@ -4,6 +4,17 @@ Registro histórico de versiones y cambios del servidor backend y del firmware d
 
 ---
 
+## [v1.1.8] — 2026-11-11
+### Corregido
+- **Fijación de Modo y Control Remoto Web (`/api/render` y `/api/dashboard/theme`):**
+  - Se corrigió la condición en `api_screen_bin` que trataba `touches=auto` del ESP32 como una orden forzada de avance de carrusel, lo que anulaba la selección hecha por el usuario desde la web y cambiaba de pantalla en la siguiente petición.
+  - Ahora se respeta el modo seleccionado por el usuario en el panel web (`_RUNTIME_STATE["current_mode"]`). Si se elige Dashboard, Calendario o Marco Foto, la pantalla queda fija en ese modo sin rotar.
+  - Al cambiar de tema (Crayón, Muji o Bento), el modo se fija automáticamente en Dashboard para mostrar el tema seleccionado inmediatamente en el E-Paper.
+  - La rotación continua solo se activa si el usuario selecciona explícitamente *"Carrusel Auto"*.
+  - En el firmware ESP32-C6, la pulsación manual del botón `BOOT` ahora envía `touches=next` para diferenciar saltos manuales de ciclos periódicos `touches=auto`.
+
+---
+
 ## [v1.1.7] — 2026-11-09
 ### Agregado
 - **Sincronización Automática en Segundo Plano de Domótica IoT (Tuya) & Smart TTL:**

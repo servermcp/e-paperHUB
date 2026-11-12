@@ -81,6 +81,7 @@ def _trigger_screen_rebuild(mode: str | None = None, force_integrations: bool = 
     )
     _RUNTIME_STATE["last_render_ms"] = info["elapsed_ms"]
     _RUNTIME_STATE["last_updated"] = datetime.now().strftime("%H:%M:%S")
+    _RUNTIME_STATE["last_render_ts"] = time.time()
     return info
 
 
@@ -476,7 +477,9 @@ def api_dashboard_theme():
     payload = request.get_json(silent=True) or request.form
     theme = payload.get("theme", "crayon").strip().lower()
     selected = database.set_dashboard_theme(theme)
+    _RUNTIME_STATE["current_mode"] = "dashboard"
     info = _trigger_screen_rebuild("dashboard")
+    _RUNTIME_STATE["rendered_mode"] = "dashboard"
     if request.accept_mimetypes.accept_html and not request.is_json:
         flash(f"Tema de Dashboard cambiado a {selected.upper()}.", "success")
         return redirect(url_for("hub"))
@@ -544,7 +547,9 @@ def api_screen_bin():
         elif touches in touch_to_mode:
             _RUNTIME_STATE["current_mode"] = touch_to_mode[touches]
 
-        is_carrusel = (_RUNTIME_STATE.get("current_mode") in ("auto", "cycle", "carrusel")) or (touches in ("auto", "cycle", "carrusel", "next"))
+        active_mode = _RUNTIME_STATE.get("current_mode", "carrusel")
+        is_button_next = touches in ("next", "button", "skip")
+        is_carrusel = (active_mode in ("auto", "cycle", "carrusel")) or is_button_next
 
         if is_carrusel:
             with database.db_session() as conn:
@@ -563,8 +568,10 @@ def api_screen_bin():
             info = _trigger_screen_rebuild(mode=target_mode)
             _RUNTIME_STATE["rendered_mode"] = target_mode
         else:
-            target_mode = _RUNTIME_STATE["current_mode"]
-            if not config.SCREEN_BIN_PATH.exists() or _RUNTIME_STATE.get("rendered_mode") != target_mode:
+            target_mode = active_mode
+            now_ts = time.time()
+            dashboard_stale = (target_mode == "dashboard" and (now_ts - _RUNTIME_STATE.get("last_render_ts", 0)) > 300)
+            if not config.SCREEN_BIN_PATH.exists() or _RUNTIME_STATE.get("rendered_mode") != target_mode or dashboard_stale:
                 info = _trigger_screen_rebuild(mode=target_mode)
                 _RUNTIME_STATE["rendered_mode"] = target_mode
             else:

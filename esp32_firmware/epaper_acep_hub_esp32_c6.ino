@@ -44,7 +44,7 @@
 const char* WIFI_SSID        = SECRET_WIFI_SSID;
 const char* WIFI_PASS        = SECRET_WIFI_PASS;
 const char* VPS_BASE_URL     = SECRET_VPS_HOST "/api/screen.bin";
-const char* FIRMWARE_VERSION = "1.1.2-carrusel";
+const char* FIRMWARE_VERSION = "1.1.3-carrusel";
 const char* OTA_CHECK_URL    = SECRET_VPS_HOST "/api/ota/check";
 const char* OTA_DOWNLOAD_URL = SECRET_VPS_HOST "/api/ota/download";
 
@@ -302,11 +302,13 @@ void loop() {
   uint32_t waitStart = millis();
   int lastSecPrinted = -1;
 
+  bool btnPressed = false;
   while (millis() - waitStart < ROTATION_INTERVAL_MS) {
     // Si presionan el botón BOOT integrado, avanza inmediatamente
     if (digitalRead(BUTTON_PIN) == LOW) {
       Serial.println("\n[BOTÓN BOOT] ¡Presionado! Saltando de pantalla inmediatamente...");
       delay(300); // debounce
+      btnPressed = true;
       break;
     }
 
@@ -319,7 +321,11 @@ void loop() {
   }
 
   // Al cumplirse el minuto (o presionar el botón), verificar si hay nuevo firmware OTA y solicitar la siguiente pantalla
-  Serial.println("\n[CARRUSEL] >> Verificando OTA y avanzando a la siguiente pantalla del ciclo...");
+  Serial.println("\n[CARRUSEL] >> Verificando OTA y solicitando pantalla al VPS...");
   checkForFirmwareUpdate();
-  streamScreenFromVPS("auto");
+  if (btnPressed) {
+    streamScreenFromVPS("next");
+  } else {
+    streamScreenFromVPS("auto");
+  }
 }

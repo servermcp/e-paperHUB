@@ -7,6 +7,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import io
+import json
 import threading
 import time
 from datetime import datetime
@@ -132,6 +133,7 @@ def index():
 OTA_DIR = config.BASE_DIR / "static" / "ota"
 OTA_VERSION_FILE = OTA_DIR / "version.json"
 OTA_FIRMWARE_FILE = OTA_DIR / "firmware.bin"
+OTA_SCREEN_BIN_FILE = OTA_DIR / "ota_screen.bin"
 
 def get_ota_info():
     if not OTA_DIR.exists():

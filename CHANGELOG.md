@@ -9,7 +9,9 @@ Registro histórico de versiones y cambios del servidor backend y del firmware d
 - **Sincronización Automática en Segundo Plano de Domótica IoT (Tuya) & Smart TTL:**
   - **Worker Demonio Continuo (`_start_background_iot_worker`):** Hilo en segundo plano en `app.py` que consulta periódicamente (cada 60s) la nube de Tuya Cloud para obtener el estado real de los 22 dispositivos (portón, luces, temperatura, riego).
   - **Detección Automática de Cambios de Estado:** Si el portón se abre o se cierra, o cambia el número de luces encendidas, se detecta el cambio de inmediato (`state_changed`), se actualiza la base de datos `device_state_cache` y se dispara la regeneración de pantalla en caso de estar en el Dashboard o modo carrusel.
-  - **Smart TTL en el Generador de Pantalla (`get_last_tuya_sync_age`):** Si pasaron más de 60 segundos desde la última sincronización con Tuya, la función `_trigger_screen_rebuild(mode="dashboard")` refresca automáticamente los estados antes de componer la imagen del E-Paper.
+### Corregido
+- **Bucle Infinito de Reinicio OTA en XIAO ESP32-C6:** Se agregó el `import json` faltante en `app.py` que causaba que `get_ota_info()` fallara silenciosamente con `NameError` y reportara versión base `1.0.0`. Esto provocaba que el endpoint `/api/ota/check` respondiera falsamente `update_available: true` a la placa (que reportaba `1.1.2-carrusel`), atrapándola en un ciclo sin fin de descarga y re-flasheo de firmware sin llegar al ciclo del carrusel.
+- **Definición de `OTA_SCREEN_BIN_FILE` (`static/ota/ota_screen.bin`):** Se definió la variable faltante en `app.py` que causaba un error 500 al solicitar la pantalla *"ACTUALIZANDO... ESP32"*.
 
 ---
 
